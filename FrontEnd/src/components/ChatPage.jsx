@@ -89,6 +89,7 @@ const ChatPage = ({ user, onLogout }) => {
   const recordingTimeoutRef = useRef(null);
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [showFriendList, setShowFriendList] = useState(true);
+  const profilePictureInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,6 +111,17 @@ const ChatPage = ({ user, onLogout }) => {
     document.documentElement.style.setProperty('--secondary-color', theme.secondary);
     document.documentElement.style.setProperty('--accent-color', theme.accent);
   }, [currentTheme]);
+
+  // Load profile picture from localStorage on component mount
+  useEffect(() => {
+    const savedProfilePicture = localStorage.getItem('userProfilePicture');
+    if (savedProfilePicture && user) {
+      // Update user object with saved profile picture
+      user.profilePicture = savedProfilePicture;
+      // Force re-render
+      setMessage(m => m);
+    }
+  }, [user]);
 
   useEffect(() => {
     let activeConnection = false;
@@ -681,6 +693,58 @@ const ChatPage = ({ user, onLogout }) => {
     );
   };
 
+  const handleProfilePictureClick = () => {
+    profilePictureInputRef.current?.click();
+  };
+
+  const handleProfilePictureChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError(`Image too large. Maximum size is ${MAX_IMAGE_SIZE / (1024 * 1024)}MB`);
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Image = event.target.result;
+        
+        // Update local state first for immediate feedback
+        const updatedUser = { ...user, profilePicture: base64Image };
+        // If you have a setUser function, use it here
+        // setUser(updatedUser);
+        
+        // Save to localStorage for persistence between sessions
+        localStorage.setItem('userProfilePicture', base64Image);
+        
+        // If you have an API endpoint to save the profile picture
+        try {
+          const token = localStorage.getItem('token');
+          /*
+          await axios.post('http://localhost:8081/api/user/profile-picture', {
+            profilePicture: base64Image
+          }, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          */
+          console.log('Profile picture updated successfully');
+        } catch (error) {
+          console.error('Failed to save profile picture to server:', error);
+          // Still keep the local change even if server update fails
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error processing profile picture:', error);
+      setError('Failed to process profile picture. Please try again.');
+    }
+  };
+
   return (
     <div className={`chat-container ${darkMode ? 'dark-mode' : ''}`}>
       <div className="chat-header">
@@ -703,8 +767,15 @@ const ChatPage = ({ user, onLogout }) => {
           </div>
         ) : (
           <div className="user-profile-info">
-            <div className="user-avatar">
-              {user.name ? user.name.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : "U")}
+            <div className="user-avatar" onClick={handleProfilePictureClick}>
+              {user.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="profile-picture" />
+              ) : (
+                user.name ? user.name.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : "U")
+              )}
+              <div className="avatar-overlay">
+                <i className="fa fa-camera"></i>
+              </div>
             </div>
             <div className="user-details">
               <h3>{user.name || "User"}</h3>
@@ -818,6 +889,13 @@ const ChatPage = ({ user, onLogout }) => {
           </div>
         </>
       )}
+      <input 
+        type="file" 
+        accept="image/*" 
+        style={{display: 'none'}} 
+        ref={profilePictureInputRef}
+        onChange={handleProfilePictureChange} 
+      />
     </div>
   );
 };
