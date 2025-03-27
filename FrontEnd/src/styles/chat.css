@@ -25,6 +25,9 @@ body, #root {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Main container styling */
@@ -32,9 +35,13 @@ body, #root {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
   background-color: var(--background-color);
   overflow: hidden;
   transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
 }
 
 /* Themed header */
@@ -120,17 +127,55 @@ body, #root {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.message-input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 0.95rem;
+}
+
+.message-input:focus {
+  outline: none;
+}
+
 /* Theme-specific button styling */
 .image-upload-btn,
-.voice-record-btn,
-.send-button {
+.voice-record-btn {
   background: transparent;
   border: none;
   color: var(--primary-color);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0.5rem;
+  margin: 0 5px;
   transition: all 0.2s ease;
+}
+
+.send-button {
+  background: var(--primary-color);
+  border: none;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+  margin-left: 10px;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.send-button:hover {
+  background: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.send-button:disabled {
+  background: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Add app-specific design elements */
@@ -2141,6 +2186,7 @@ button:hover i,
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0.5rem;
+  margin: 0 5px;
   transition: all 0.2s ease;
 }
 
