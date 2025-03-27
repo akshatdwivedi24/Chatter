@@ -1004,7 +1004,7 @@ const ChatPage = ({ user, onLogout }) => {
                 onClick={sendMessage}
                 disabled={!message.trim() || !connected || isConnecting}
               >
-                <i className="fa fa-paper-plane"></i>
+                Send
               </button>
             </div>
           </div>
