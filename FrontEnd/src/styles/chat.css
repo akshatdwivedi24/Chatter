@@ -1967,39 +1967,51 @@ button,
 .accept-btn,
 .reject-btn,
 .change-picture-button,
-.remove-picture-button {
+.remove-picture-button,
+.call-button,
+.video-call-button,
+.menu-button {
   position: relative;
   overflow: hidden;
   z-index: 1;
   transition: all 0.3s ease;
 }
 
-/* The slide-up colored background */
-button:before,
-.image-upload-btn:before,
-.voice-record-btn:before,
-.send-button:before,
-.logout-button:before,
-.back-button:before,
-.theme-switch label:before,
-.message-btn:before,
-.remove-btn:before,
-.accept-btn:before,
-.reject-btn:before,
-.change-picture-button:before,
-.remove-picture-button:before {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  transition: 0.5s;
-  z-index: -1;
-  opacity: 0.9;
+/* Update hover animations for all buttons */
+button:hover,
+.image-upload-btn:hover,
+.voice-record-btn:hover,
+.send-button:hover,
+.logout-button:hover,
+.back-button:hover,
+.theme-switch label:hover,
+.message-btn:hover,
+.remove-btn:hover,
+.accept-btn:hover,
+.reject-btn:hover,
+.change-picture-button:hover,
+.remove-picture-button:hover {
+  transform: scale(1.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Slide up the background on hover */
+.dark-mode button:hover,
+.dark-mode .image-upload-btn:hover,
+.dark-mode .voice-record-btn:hover,
+.dark-mode .send-button:hover,
+.dark-mode .logout-button:hover,
+.dark-mode .back-button:hover,
+.dark-mode .theme-switch label:hover,
+.dark-mode .message-btn:hover,
+.dark-mode .remove-btn:hover,
+.dark-mode .accept-btn:hover,
+.dark-mode .reject-btn:hover,
+.dark-mode .change-picture-button:hover,
+.dark-mode .remove-picture-button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Remove old button hover effects */
 button:hover:before,
 .image-upload-btn:hover:before,
 .voice-record-btn:hover:before,
@@ -2013,10 +2025,10 @@ button:hover:before,
 .reject-btn:hover:before,
 .change-picture-button:hover:before,
 .remove-picture-button:hover:before {
-  top: 0;
+  display: none;
 }
 
-/* Rotate icons on hover */
+/* Update icon animation to spin animation */
 button:hover i,
 .image-upload-btn:hover i,
 .voice-record-btn:hover i,
@@ -2028,73 +2040,17 @@ button:hover i,
 .accept-btn:hover i,
 .reject-btn:hover i,
 .change-picture-button:hover i,
-.remove-picture-button:hover i {
-  animation: rotateY360 0.5s forwards;
-  color: #fff;
+.remove-picture-button:hover i,
+.call-button:hover i,
+.video-call-button:hover i,
+.menu-button:hover i {
+  animation: spinIcon 0.5s ease-in-out;
 }
 
-/* Different colors for different button types */
-.send-button:before {
-  background: #1a73e8;
-}
-
-.image-upload-btn:before {
-  background: #4caf50;
-}
-
-.voice-record-btn:before {
-  background: #2196f3;
-}
-
-.logout-button:before {
-  background: #f44336;
-}
-
-.back-button:before {
-  background: #9c27b0;
-}
-
-.message-btn:before {
-  background: #1a73e8;
-}
-
-.remove-btn:before {
-  background: #f44336;
-}
-
-.accept-btn:before {
-  background: #4caf50;
-}
-
-.reject-btn:before {
-  background: #f44336;
-}
-
-.change-picture-button:before {
-  background: #1a73e8;
-}
-
-.remove-picture-button:before {
-  background: #f44336;
-}
-
-.theme-switch label:before {
-  background: #ff9800;
-}
-
-/* Fix for theme switch checked state */
-.theme-switch input:checked + label {
-  background: var(--primary-color);
-}
-
-/* Ensure the header has enough space for all elements and they're properly aligned */
-.header-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 20px;
-  padding-right: 15px;
-  height: 50px;
+/* Special animations for buttons */
+@keyframes spinIcon {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Theme dropdown styling */
