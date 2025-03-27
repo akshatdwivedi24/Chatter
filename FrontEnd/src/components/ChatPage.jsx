@@ -934,6 +934,28 @@ const ChatPage = ({ user, onLogout }) => {
               </button>
             </>
           )}
+          
+          {!showFriendList && selectedFriend && (
+            <div className="chat-actions">
+              <button className="call-button" title="Voice Call">
+                <i className="fa fa-phone"></i>
+              </button>
+              <button className="video-call-button" title="Video Call">
+                <i className="fa fa-video"></i>
+              </button>
+              <div className="menu-dropdown">
+                <button className="menu-button" title="More Options">
+                  <i className="fa fa-ellipsis-v"></i>
+                </button>
+                <div className="dropdown-content">
+                  <button>Block Contact</button>
+                  <button>Clear Chat</button>
+                  <button>Search Messages</button>
+                  <button>View Profile</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
