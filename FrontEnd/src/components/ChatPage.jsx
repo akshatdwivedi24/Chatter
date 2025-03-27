@@ -8,58 +8,93 @@ import FriendList from './FriendList';
 const THEMES = {
   whatsapp: {
     name: 'WhatsApp',
-    primary: '#128C7E',
+    primary: '#075E54',
     secondary: '#DCF8C6',
     accent: '#25D366',
     background: '#E5DDD5',
     messageBox: '#ffffff',
-    sentMessage: '#E7FFDB',
+    sentMessage: '#DCF8C6',
     receivedMessage: '#ffffff',
-    textColor: '#000000'
+    textColor: '#2C3E50',
+    darkMode: {
+      background: '#0D1418',
+      messageBox: '#1F2C34',
+      textColor: '#E5E5E5',
+      sentMessage: '#005C4B',
+      receivedMessage: '#1F2C34'
+    }
   },
   telegram: {
     name: 'Telegram',
-    primary: '#0088cc',
-    secondary: '#ffffff',
-    accent: '#31a1dd',
-    background: '#ebedf0',
+    primary: '#5682A3',
+    secondary: '#EFFDDE',
+    accent: '#31A1DD',
+    background: '#ffffff',
     messageBox: '#ffffff',
-    sentMessage: '#eeffde',
+    sentMessage: '#EFFDDE',
     receivedMessage: '#ffffff',
-    textColor: '#000000'
+    textColor: '#2C3E50',
+    darkMode: {
+      background: '#17212B',
+      messageBox: '#1F2936',
+      textColor: '#ffffff',
+      sentMessage: '#2B5278',
+      receivedMessage: '#1F2936'
+    }
   },
   instagram: {
     name: 'Instagram',
-    primary: '#E1306C',
-    secondary: '#ffffff',
-    accent: '#833AB4',
+    primary: '#405DE6',
+    secondary: '#3797F0',
+    accent: '#C13584',
     background: '#FAFAFA',
     messageBox: '#ffffff',
-    sentMessage: '#0095F6',
+    sentMessage: '#3797F0',
     receivedMessage: '#ffffff',
-    textColor: '#000000'
+    textColor: '#262626',
+    darkMode: {
+      background: '#121212',
+      messageBox: '#262626',
+      textColor: '#ffffff',
+      sentMessage: '#3797F0',
+      receivedMessage: '#262626'
+    }
   },
   discord: {
     name: 'Discord',
     primary: '#7289DA',
-    secondary: '#ffffff',
+    secondary: '#99AAB5',
     accent: '#43B581',
-    background: '#F5F5F5',
-    messageBox: '#ffffff',
+    background: '#36393F',
+    messageBox: '#40444B',
     sentMessage: '#7289DA',
-    receivedMessage: '#ffffff',
-    textColor: '#000000'
+    receivedMessage: '#40444B',
+    textColor: '#FFFFFF',
+    darkMode: {
+      background: '#202225',
+      messageBox: '#2F3136',
+      textColor: '#FFFFFF',
+      sentMessage: '#7289DA',
+      receivedMessage: '#2F3136'
+    }
   },
   messenger: {
     name: 'Messenger',
     primary: '#0084FF',
-    secondary: '#ffffff',
+    secondary: '#E4E6EB',
     accent: '#00C6FF',
-    background: '#F5F7FB',
-    messageBox: '#ffffff',
+    background: '#FFFFFF',
+    messageBox: '#F1F0F0',
     sentMessage: '#0084FF',
-    receivedMessage: '#F0F0F0',
-    textColor: '#000000'
+    receivedMessage: '#F1F0F0',
+    textColor: '#050505',
+    darkMode: {
+      background: '#242526',
+      messageBox: '#3A3B3C',
+      textColor: '#E4E6EB',
+      sentMessage: '#0084FF',
+      receivedMessage: '#3A3B3C'
+    }
   }
 };
 
@@ -108,10 +143,38 @@ const ChatPage = ({ user, onLogout }) => {
   useEffect(() => {
     // Apply theme colors to CSS variables
     const theme = THEMES[currentTheme];
-    document.documentElement.style.setProperty('--primary-color', theme.primary);
-    document.documentElement.style.setProperty('--secondary-color', theme.secondary);
-    document.documentElement.style.setProperty('--accent-color', theme.accent);
-  }, [currentTheme]);
+    const themeColors = darkMode && theme.darkMode 
+      ? {
+          '--primary-color': theme.primary,
+          '--secondary-color': theme.secondary,
+          '--accent-color': theme.accent,
+          '--background-color': theme.darkMode.background,
+          '--message-box-color': theme.darkMode.messageBox,
+          '--text-color': theme.darkMode.textColor,
+          '--sent-message-bg': theme.darkMode.sentMessage,
+          '--received-message-bg': theme.darkMode.receivedMessage,
+          '--header-bg': theme.primary,
+          '--border-color': 'rgba(255, 255, 255, 0.1)'
+        }
+      : {
+          '--primary-color': theme.primary,
+          '--secondary-color': theme.secondary,
+          '--accent-color': theme.accent,
+          '--background-color': theme.background,
+          '--message-box-color': theme.messageBox,
+          '--text-color': theme.textColor,
+          '--sent-message-bg': theme.sentMessage,
+          '--received-message-bg': theme.receivedMessage,
+          '--header-bg': theme.primary,
+          '--border-color': 'rgba(0, 0, 0, 0.1)'
+        };
+
+    // Apply all theme variables to CSS
+    Object.entries(themeColors).forEach(([variable, value]) => {
+      document.documentElement.style.setProperty(variable, value);
+    });
+
+  }, [currentTheme, darkMode]);
 
   // Load profile picture from localStorage on component mount
   useEffect(() => {
@@ -799,7 +862,7 @@ const ChatPage = ({ user, onLogout }) => {
   };
 
   return (
-    <div className={`chat-container ${darkMode ? 'dark-mode' : ''}`}>
+    <div className={`chat-container ${darkMode ? 'dark-mode' : ''} ${currentTheme}-theme`}>
       <ProfilePictureModal />
       
       <div className="chat-header">
