@@ -78,7 +78,7 @@ const ChatPage = ({ user, onLogout }) => {
   const isReconnecting = useRef(false);
   const messageQueueRef = useRef([]);
   const processedMessages = useRef(new Set());
-  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB (increased from 5MB)
   const MAX_IMAGE_CHUNK_SIZE = 64 * 1024; // 64KB chunks for images
   const MAX_VOICE_CHUNK_SIZE = 8 * 1024; // 8KB chunks for voice messages
   const MAX_RECORDING_DURATION = 300000; // 5 minutes in milliseconds
@@ -90,6 +90,7 @@ const ChatPage = ({ user, onLogout }) => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [showFriendList, setShowFriendList] = useState(true);
   const profilePictureInputRef = useRef(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -694,7 +695,7 @@ const ChatPage = ({ user, onLogout }) => {
   };
 
   const handleProfilePictureClick = () => {
-    profilePictureInputRef.current?.click();
+    setShowProfileModal(true);
   };
 
   const handleProfilePictureChange = async (e) => {
@@ -745,8 +746,62 @@ const ChatPage = ({ user, onLogout }) => {
     }
   };
 
+  const removeProfilePicture = () => {
+    // Remove from local state
+    user.profilePicture = null;
+    
+    // Remove from localStorage
+    localStorage.removeItem('userProfilePicture');
+    
+    // Force a re-render
+    setMessage(m => m);
+    
+    // Optional: Close the modal after removing
+    // setShowProfileModal(false);
+  };
+
+  const ProfilePictureModal = () => {
+    if (!showProfileModal) return null;
+    
+    return (
+      <div className="profile-modal-overlay" onClick={() => setShowProfileModal(false)}>
+        <div className="profile-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="profile-modal-header">
+            <h3>Profile Picture</h3>
+            <button className="close-button" onClick={() => setShowProfileModal(false)}>
+              <i className="fa fa-times"></i>
+            </button>
+          </div>
+          <div className="profile-modal-body">
+            <div className="profile-image-container">
+              {user.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="profile-modal-image" />
+              ) : (
+                <div className="profile-placeholder">
+                  {user.name ? user.name.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : "U")}
+                </div>
+              )}
+            </div>
+            <div className="profile-modal-buttons">
+              <button className="change-picture-button" onClick={() => profilePictureInputRef.current?.click()}>
+                <i className="fa fa-camera"></i> Change Picture
+              </button>
+              {user.profilePicture && (
+                <button className="remove-picture-button" onClick={removeProfilePicture}>
+                  <i className="fa fa-trash"></i> Remove Picture
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`chat-container ${darkMode ? 'dark-mode' : ''}`}>
+      <ProfilePictureModal />
+      
       <div className="chat-header">
         {!showFriendList && selectedFriend && (
           <button className="back-button" onClick={goBackToFriendList}>

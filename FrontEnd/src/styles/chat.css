@@ -1702,4 +1702,177 @@
 
 .dark-mode .user-email {
   color: #aaa;
+}
+
+/* Profile Modal Styles */
+.profile-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.profile-modal-content {
+  background-color: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  animation: scaleIn 0.3s ease;
+}
+
+.dark-mode .profile-modal-content {
+  background-color: #2A2F32;
+  color: white;
+}
+
+.profile-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dark-mode .profile-modal-header {
+  border-bottom-color: #3E4042;
+}
+
+.profile-modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-color);
+}
+
+.dark-mode .profile-modal-header h3 {
+  color: white;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #757575;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.close-button:hover {
+  color: #ff4d4f;
+}
+
+.dark-mode .close-button {
+  color: #b0b0b0;
+}
+
+.profile-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-image-container {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 20px;
+  background-color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.profile-modal-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.profile-modal-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.change-picture-button,
+.remove-picture-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.change-picture-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.change-picture-button:hover {
+  background-color: var(--accent-color);
+}
+
+.remove-picture-button {
+  background-color: #f5f5f5;
+  color: #ff4d4f;
+}
+
+.dark-mode .remove-picture-button {
+  background-color: #3E4042;
+}
+
+.remove-picture-button:hover {
+  background-color: #fff1f0;
+  color: #ff7875;
+}
+
+.dark-mode .remove-picture-button:hover {
+  background-color: #4E5052;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 } 
