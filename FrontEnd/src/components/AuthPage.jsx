@@ -3,8 +3,15 @@ import '../styles/auth.css';
 
 const AuthPage = ({ onAuthSuccess }) => {
   const [error, setError] = useState(null);
+  const [showAboutAuthor, setShowAboutAuthor] = useState(false);
 
   useEffect(() => {
+    // Add Font Awesome
+    const fontAwesomeScript = document.createElement('link');
+    fontAwesomeScript.rel = 'stylesheet';
+    fontAwesomeScript.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+    document.head.appendChild(fontAwesomeScript);
+
     const loadGoogleScript = () => {
       // Remove any existing Google Sign-In scripts
       const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
@@ -69,6 +76,11 @@ const AuthPage = ({ onAuthSuccess }) => {
       if (scriptElement) {
         document.head.removeChild(scriptElement);
       }
+      
+      const fontAwesomeLink = document.querySelector('link[href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"]');
+      if (fontAwesomeLink) {
+        document.head.removeChild(fontAwesomeLink);
+      }
     };
   }, []);
 
@@ -112,6 +124,10 @@ const AuthPage = ({ onAuthSuccess }) => {
     }
   };
 
+  const toggleAboutAuthor = () => {
+    setShowAboutAuthor(!showAboutAuthor);
+  };
+
   return (
     <div className="auth-container">
       {/* Animated background shapes */}
@@ -119,15 +135,86 @@ const AuthPage = ({ onAuthSuccess }) => {
       <div className="shape shape-2"></div>
       <div className="shape shape-3"></div>
 
-      <div className="auth-card">
-        <div className="welcome-text">
-          <h1>Welcome to Chatter</h1>
-          <p>Continue with Google to start chatting</p>
-          {error && <div className="error-message">{error}</div>}
+      {/* About the author section */}
+      <div className="about-author-section">
+        <button className="about-button" onClick={toggleAboutAuthor}>
+          About the author
+        </button>
+        
+        {showAboutAuthor && (
+          <div className="about-author-modal">
+            <div className="about-author-content">
+              <button className="close-button" onClick={toggleAboutAuthor}>×</button>
+              <h2>About the Author</h2>
+              <p>
+                Akshat Dwivedi is a passionate software developer with expertise in Spring Boot, React, and distributed systems. 
+                With a strong foundation in backend development, real-time data processing, and system architecture, 
+                Akshat enjoys building scalable and efficient applications.
+              </p>
+              <p>
+                He has worked on multiple projects, including real-time chat applications, distributed file systems, 
+                and data ingestion pipelines using Kafka. His focus is on designing robust, high-performance systems 
+                while ensuring security and seamless user experience.
+              </p>
+              <p>
+                Beyond coding, Akshat enjoys sports, watching movies, walking, and listening to music. 
+                He believes in continuous learning and staying updated with the latest technological trends.
+              </p>
+              <div className="author-social-links">
+                <a href="https://www.instagram.com/aksh.at_24?utm_source=qr&igsh=ZmZzajVlYndkbnkz" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a href="https://github.com/akshatdwivedi24" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a href="https://www.linkedin.com/in/akshat-dwivedi1/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="auth-split-container">
+        {/* Left side - Welcome and slogan */}
+        <div className="auth-welcome-side">
+          <div className="welcome-content">
+            <h1>Welcome to Chatter</h1>
+            <div className="slogan">
+              <p>"Unfiltered Vibes, Untamed Chats – This is Chatter!" 💬⚡🎭</p>
+            </div>
+            <div className="welcome-design">
+              <div className="chat-bubble bubble-1">Hey there!</div>
+              <div className="chat-bubble bubble-2">Welcome to Chatter!</div>
+              <div className="chat-bubble bubble-3">Join the conversation...</div>
+            </div>
+          </div>
         </div>
 
-        {/* Google Sign-In button container */}
-        <div id="googleButton" className="google-button-container"></div>
+        {/* Right side - Login form */}
+        <div className="auth-login-side">
+          <div className="auth-card">
+            <div className="login-text">
+              <h2>Sign in</h2>
+              <p>Continue with Google to start chatting</p>
+              {error && <div className="error-message">{error}</div>}
+            </div>
+
+            {/* Google Sign-In button container */}
+            <div id="googleButton" className="google-button-container"></div>
+            
+            {/* Social links */}
+            <div className="auth-social-links">
+              <p>Connect with the developer:</p>
+              <div className="social-icons">
+                <a href="https://www.instagram.com/aksh.at_24?utm_source=qr&igsh=ZmZzajVlYndkbnkz" target="_blank" rel="noopener noreferrer" className="social-icon instagram">
+                  <i className="fab fa-instagram"></i>
+                </a>
+                <a href="https://github.com/akshatdwivedi24" target="_blank" rel="noopener noreferrer" className="social-icon github">
+                  <i className="fab fa-github"></i>
+                </a>
+                <a href="https://www.linkedin.com/in/akshat-dwivedi1/" target="_blank" rel="noopener noreferrer" className="social-icon linkedin">
+                  <i className="fab fa-linkedin"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
