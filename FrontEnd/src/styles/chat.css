@@ -148,9 +148,26 @@ body, #root {
   color: var(--primary-color);
   font-size: 1.2rem;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 8px;
   margin: 0 5px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
+}
+
+.image-upload-btn:hover,
+.voice-record-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: scale(1.1);
+}
+
+.dark-mode .image-upload-btn:hover,
+.dark-mode .voice-record-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .send-button {
@@ -160,15 +177,20 @@ body, #root {
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 0;
   margin-left: 10px;
-  border-radius: 16px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
 }
 
 .send-button:hover {
   background: var(--accent-color);
-  transform: translateY(-1px);
+  transform: scale(1.1);
 }
 
 .send-button:disabled {
@@ -2141,15 +2163,28 @@ button:hover i,
   color: var(--primary-color);
   font-size: 1.2rem;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 8px;
   margin: 0 5px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
 }
 
 .image-upload-btn:hover,
 .voice-record-btn:hover,
 .send-button:hover {
-  color: var(--accent-color);
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: scale(1.1);
+}
+
+.dark-mode .image-upload-btn:hover,
+.dark-mode .voice-record-btn:hover,
+.dark-mode .send-button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .voice-record-btn.recording {
