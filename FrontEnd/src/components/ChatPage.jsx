@@ -840,34 +840,37 @@ const ChatPage = ({ user, onLogout }) => {
         )}
         
         <div className="header-right">
-          <div className="theme-selector">
-            <select 
-              value={currentTheme} 
-              onChange={(e) => setCurrentTheme(e.target.value)}
-              className="theme-dropdown"
-            >
-              {Object.entries(THEMES).map(([key, theme]) => (
-                <option key={key} value={key}>{theme.name}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="theme-switch">
-            <input 
-              type="checkbox" 
-              id="darkmode-toggle" 
-              checked={darkMode}
-              onChange={() => setDarkMode(!darkMode)}
-            />
-            <label htmlFor="darkmode-toggle">
-              <span className="sr-only">Toggle dark mode</span>
-            </label>
-            <span className="mode-label">{darkMode ? 'Dark' : 'Light'}</span>
-          </div>
-          
-          <button className="logout-button" onClick={onLogout}>
-            <i className="fa fa-sign-out"></i>
-          </button>
+          {showFriendList && (
+            <>
+              <div className="theme-selector">
+                <select 
+                  value={currentTheme} 
+                  onChange={(e) => setCurrentTheme(e.target.value)}
+                  className="theme-dropdown"
+                >
+                  {Object.entries(THEMES).map(([key, theme]) => (
+                    <option key={key} value={key}>{theme.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="theme-switch">
+                <input 
+                  type="checkbox" 
+                  id="darkmode-toggle" 
+                  checked={darkMode}
+                  onChange={() => setDarkMode(!darkMode)}
+                />
+                <label htmlFor="darkmode-toggle">
+                  <span className="sr-only">Toggle dark mode</span>
+                </label>
+              </div>
+              
+              <button className="logout-button" onClick={onLogout}>
+                <i className="fa fa-sign-out"></i>
+              </button>
+            </>
+          )}
         </div>
       </div>
       
