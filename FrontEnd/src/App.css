@@ -1,8 +1,9 @@
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
   text-align: center;
+  height: 100vh;
 }
 
 .logo {
@@ -92,6 +93,7 @@ body {
   align-items: center;
   height: 100vh;
   background: var(--header-bg);
+  overflow: hidden;
 }
 
 .login-form {
@@ -101,6 +103,7 @@ body {
   box-shadow: 0 4px 12px var(--shadow-color);
   width: 100%;
   max-width: 400px;
+  margin: 0 auto;
 }
 
 .login-form h2 {
@@ -432,4 +435,7 @@ button:active {
 #googleSignInDiv {
   width: 100%;
   margin-top: 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
