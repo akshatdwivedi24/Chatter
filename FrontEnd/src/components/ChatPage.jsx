@@ -66,6 +66,79 @@ const THEMES = {
   }
 };
 
+const VoiceMessage = ({ message }) => {
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState('0:00');
+  const [currentTime, setCurrentTime] = useState('0:00');
+  const [progress, setProgress] = useState(0);
+
+  const formatTime = (time) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handlePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.addEventListener('loadedmetadata', () => {
+        setDuration(formatTime(audioRef.current.duration));
+      });
+      audioRef.current.addEventListener('timeupdate', () => {
+        setCurrentTime(formatTime(audioRef.current.currentTime));
+        setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+      });
+      audioRef.current.addEventListener('ended', () => {
+        setIsPlaying(false);
+        setCurrentTime(formatTime(0));
+        setProgress(0);
+      });
+    }
+  }, []);
+
+  return (
+    <div className="voice-message">
+      <button 
+        className="play-button"
+        onClick={handlePlay}
+        aria-label={isPlaying ? 'Pause' : 'Play'}
+      >
+        <i className={`fas ${isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
+      </button>
+      <div className="voice-content">
+        <div className="waveform-container">
+          <div className="waveform">
+            <div 
+              className="waveform-progress" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
+        <div className="voice-info">
+          <span className="duration">{isPlaying ? currentTime : duration}</span>
+        </div>
+      </div>
+      <audio 
+        ref={audioRef}
+        src={`data:${message.contentType};base64,${message.content}`}
+        preload="metadata"
+        style={{ display: 'none' }}
+      />
+    </div>
+  );
+};
+
 const ChatPage = ({ user, onLogout }) => {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
@@ -84,8 +157,11 @@ const ChatPage = ({ user, onLogout }) => {
   const [imageChunks, setImageChunks] = useState({});
   const fileInputRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [audioChunks, setAudioChunks] = useState([]);
   const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimeoutRef = useRef(null);
+  const MAX_VOICE_CHUNK_SIZE = 8 * 1024; // 8KB chunks for voice messages
+  const MAX_RECORDING_DURATION = 300000; // 5 minutes in milliseconds
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -155,6 +231,8 @@ const ChatPage = ({ user, onLogout }) => {
               
               if (receivedMessage.type === 'IMAGE_CHUNK') {
                 handleImageChunk(receivedMessage);
+              } else if (receivedMessage.type === 'VOICE_CHUNK') {
+                handleVoiceChunk(receivedMessage);
               } else {
                 const messageKey = `${receivedMessage.type || 'TEXT'}-${receivedMessage.sender}-${receivedMessage.timestamp}`;
                 if (!processedMessages.current.has(messageKey)) {
@@ -612,50 +690,240 @@ const ChatPage = ({ user, onLogout }) => {
     }
   };
 
-  const startRecording = async () => {
+  const sendVoiceMessage = async (audioBlob) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      setAudioChunks([]);
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          setAudioChunks((chunks) => [...chunks, event.data]);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const base64Audio = e.target.result.split(',')[1];
-          const messageData = {
-            type: 'VOICE',
-            sender: user.name,
-            content: base64Audio,
-            contentType: 'audio/webm',
-            timestamp: new Date().toISOString()
-          };
-          await sendMessageToServer(messageData, stompClient);
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Audio = reader.result.split(',')[1];
+        
+        // Create temporary message
+        const tempMessage = {
+          type: 'VOICE',
+          content: base64Audio,
+          contentType: 'audio/webm',
+          sender: user.name,
+          timestamp: new Date().toISOString(),
+          status: 'sending'
         };
-        reader.readAsDataURL(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
 
-      mediaRecorder.start();
-      setIsRecording(true);
+        // Add to messages immediately
+        setMessages(prev => [...prev, { ...tempMessage, status: 'sending' }]);
+
+        if (!stompClient?.connected) {
+          console.log('Not connected, queueing voice message');
+          messageQueueRef.current.push(tempMessage);
+          handleReconnect();
+          return;
+        }
+
+        // Split into chunks
+        const chunks = [];
+        for (let i = 0; i < base64Audio.length; i += MAX_VOICE_CHUNK_SIZE) {
+          chunks.push(base64Audio.slice(i, i + MAX_VOICE_CHUNK_SIZE));
+        }
+
+        const messageId = Date.now().toString();
+        console.log(`Splitting voice message into ${chunks.length} chunks`);
+        let successfulChunks = 0;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            for (let i = successfulChunks; i < chunks.length; i++) {
+              if (!stompClient?.connected) {
+                throw new Error('Connection lost during chunk sending');
+              }
+
+              const messageObj = {
+                type: 'VOICE_CHUNK',
+                content: chunks[i],
+                contentType: 'audio/webm',
+                sender: user.name,
+                timestamp: tempMessage.timestamp,
+                messageId,
+                chunkIndex: i,
+                totalChunks: chunks.length
+              };
+
+              await new Promise((resolve, reject) => {
+                try {
+                  stompClient.publish({
+                    destination: '/app/chat',
+                    body: JSON.stringify(messageObj)
+                  });
+                  successfulChunks++;
+                  console.log(`Voice chunk ${i + 1}/${chunks.length} sent successfully`);
+                  setTimeout(resolve, CHUNK_DELAY);
+                } catch (error) {
+                  reject(error);
+                }
+              });
+            }
+
+            // Update message status to sent
+            setMessages(prev => prev.map(msg => 
+              msg.timestamp === tempMessage.timestamp ? { ...msg, status: 'sent' } : msg
+            ));
+
+            console.log('Voice message sent successfully');
+            return;
+          } catch (error) {
+            console.error(`Attempt ${attempt + 1} failed:`, error);
+            if (attempt < 2) {
+              console.log('Waiting before retry...');
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              if (!stompClient?.connected) {
+                await waitForConnection();
+              }
+            }
+          }
+        }
+        throw new Error('Failed to send voice message after multiple attempts');
+      };
+      reader.readAsDataURL(audioBlob);
     } catch (error) {
-      console.error('Error starting recording:', error);
-      setError('Could not access microphone. Please check your permissions.');
+      console.error('Error sending voice message:', error);
+      setError('Failed to send voice message. Please try again.');
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  const startRecording = async (e) => {
+    e.preventDefault(); // Prevent default button behavior
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        bitsPerSecond: 32000
+      });
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          await sendVoiceMessage(audioBlob);
+        }
+        // Stop all tracks in the stream
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      };
+
+      // Start recording immediately
+      mediaRecorderRef.current.start(100); // Collect data every 100ms
+      setIsRecording(true);
+
+      // Add visual feedback
+      const button = document.querySelector('.voice-button');
+      if (button) {
+        button.classList.add('recording');
+      }
+
+      // Set up recording duration limit
+      recordingTimeoutRef.current = setTimeout(() => {
+        if (isRecording) {
+          stopRecording();
+          alert('Maximum recording duration reached (5 minutes)');
+        }
+      }, MAX_RECORDING_DURATION);
+
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      alert('Could not access microphone. Please ensure you have granted microphone permissions.');
     }
+  };
+
+  const stopRecording = (e) => {
+    if (e) {
+      e.preventDefault(); // Prevent default button behavior
+    }
+    
+    if (mediaRecorderRef.current && isRecording) {
+      try {
+        // Clear the recording timeout
+        if (recordingTimeoutRef.current) {
+          clearTimeout(recordingTimeoutRef.current);
+          recordingTimeoutRef.current = null;
+        }
+
+        // Ensure we collect any remaining audio data
+        mediaRecorderRef.current.requestData();
+        
+        // Stop recording
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+        
+        // Remove visual feedback
+        const button = document.querySelector('.voice-button');
+        if (button) {
+          button.classList.remove('recording');
+        }
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        setIsRecording(false);
+      }
+    }
+  };
+
+  // Clean up function for voice recording
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && isRecording) {
+        try {
+          if (recordingTimeoutRef.current) {
+            clearTimeout(recordingTimeoutRef.current);
+          }
+          mediaRecorderRef.current.requestData();
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        } catch (error) {
+          console.error('Error cleaning up recording:', error);
+        }
+      }
+    };
+  }, [isRecording]);
+
+  const handleVoiceChunk = (message) => {
+    const { messageId, chunkIndex, totalChunks, content, contentType, sender, timestamp } = message;
+    
+    console.log(`Received voice chunk ${chunkIndex + 1}/${totalChunks} for message ${messageId}`);
+    
+    setImageChunks(prev => {
+      const chunks = { ...(prev[messageId] || {}) };
+      chunks[chunkIndex] = content;
+      
+      if (Object.keys(chunks).length === totalChunks) {
+        console.log('All voice chunks received, reconstructing audio');
+        
+        const completeAudio = Array.from({ length: totalChunks })
+          .map((_, i) => chunks[i])
+          .join('');
+
+        const completeMessage = {
+          type: 'VOICE',
+          content: completeAudio,
+          contentType: contentType,
+          sender: sender,
+          timestamp: timestamp
+        };
+
+        const messageKey = `VOICE-${sender}-${timestamp}`;
+        if (!processedMessages.current.has(messageKey)) {
+          processedMessages.current.add(messageKey);
+          setMessages(prev => [...prev, completeMessage]);
+          console.log('Voice message added to chat');
+        }
+
+        const newState = { ...prev };
+        delete newState[messageId];
+        return newState;
+      }
+
+      return { ...prev, [messageId]: chunks };
+    });
   };
 
   const renderMessage = (message) => {
@@ -687,21 +955,7 @@ const ChatPage = ({ user, onLogout }) => {
           </div>
         );
       case 'VOICE':
-        return (
-          <div className={messageClass}>
-            {message.sender !== user.name && (
-              <div className="message-sender">{message.sender}</div>
-            )}
-            <audio controls className="voice-message">
-              <source src={`data:${message.contentType};base64,${message.content}`} type={message.contentType} />
-              Your browser does not support the audio element.
-            </audio>
-            <div className="message-time">
-              {formatTime(message.timestamp)}
-              {isTemporary && ' (sending...)'}
-            </div>
-          </div>
-        );
+        return <VoiceMessage message={message} />;
       default:
         return (
           <div className={messageClass}>
@@ -813,13 +1067,15 @@ const ChatPage = ({ user, onLogout }) => {
           <i className="fa fa-camera"></i>
         </button>
         <button
-          className={`voice-button ${isRecording ? 'recording' : ''}`}
+          className="voice-button"
           onMouseDown={startRecording}
           onMouseUp={stopRecording}
           onMouseLeave={stopRecording}
-          title="Hold to record voice message"
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
+          onTouchCancel={stopRecording}
         >
-          <i className={`fa ${isRecording ? 'fa-stop' : 'fa-microphone'}`}></i>
+          <i className={`fas fa-microphone ${isRecording ? 'recording' : ''}`} />
         </button>
         <button 
           className="send-button" 
