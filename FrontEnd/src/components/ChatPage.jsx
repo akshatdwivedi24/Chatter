@@ -4,6 +4,7 @@ import { Client } from '@stomp/stompjs';
 import '../styles/chat.css';
 import 'font-awesome/css/font-awesome.min.css';
 import FriendList from './FriendList';
+import axios from 'axios';
 
 const THEMES = {
   whatsapp: {
@@ -402,30 +403,70 @@ const ChatPage = ({ user, onLogout }) => {
   const handleSelectFriend = (friend) => {
     setSelectedFriend(friend);
     setShowFriendList(false);
-    
-    // Reset messages when switching friends
     setMessages([]);
-    
-    // Here you would fetch previous messages with this friend
-    fetchMessagesWithFriend(friend.id);
+    setError(null);
+
+    // Connect to the chat and subscribe to the appropriate topic
+    if (connected && stompClient) {
+      // First unsubscribe from any existing subscription
+      if (selectedFriend) {
+        const prevChatTopic = `/topic/chat/${user.sub}_${selectedFriend.id}`;
+        const prevChatTopicReverse = `/topic/chat/${selectedFriend.id}_${user.sub}`;
+        try {
+          stompClient.unsubscribe(prevChatTopic);
+          stompClient.unsubscribe(prevChatTopicReverse);
+        } catch (err) {
+          console.warn('Error unsubscribing from previous topic', err);
+        }
+      }
+
+      // Subscribe to new topics
+      if (friend.isGroup) {
+        // For groups, subscribe to the group topic
+        const groupTopic = `/topic/group/${friend.id}`;
+        stompClient.subscribe(groupTopic, onMessageReceived);
+        
+        // Load previous group messages
+        fetchPreviousMessages(friend.id, true);
+      } else {
+        // For direct messages, subscribe to both directions of the conversation
+        const chatTopic = `/topic/chat/${user.sub}_${friend.id}`;
+        const chatTopicReverse = `/topic/chat/${friend.id}_${user.sub}`;
+        
+        stompClient.subscribe(chatTopic, onMessageReceived);
+        stompClient.subscribe(chatTopicReverse, onMessageReceived);
+        
+        // Load previous direct messages
+        fetchPreviousMessages(friend.id, false);
+      }
+    }
   };
 
-  const fetchMessagesWithFriend = async (friendId) => {
+  const fetchPreviousMessages = async (chatId, isGroup) => {
     try {
       const token = localStorage.getItem('token');
-      // This would be your API endpoint to fetch messages with a specific friend
-      // const response = await axios.get(`http://localhost:8081/api/messages/${friendId}`, {
-      //   headers: {
-      //     'Authorization': `Bearer ${token}`
-      //   }
-      // });
-      // setMessages(response.data);
+      let endpoint;
       
-      // For now we'll just use existing messages or empty array
-      console.log(`Fetching messages with friend: ${friendId}`);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      setError('Failed to load messages. Please try again.');
+      if (isGroup) {
+        endpoint = `http://localhost:8081/api/messages/group/${chatId}`;
+      } else {
+        endpoint = `http://localhost:8081/api/messages/direct?userId=${user.sub}&friendId=${chatId}`;
+      }
+      
+      const response = await axios.get(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }).catch(() => {
+        // For now, return empty array if endpoint doesn't exist yet
+        return { data: [] };
+      });
+      
+      setMessages(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching previous messages:', err);
+      setError('Failed to load previous messages. Please try again.');
     }
   };
 
@@ -434,40 +475,71 @@ const ChatPage = ({ user, onLogout }) => {
     setSelectedFriend(null);
   };
 
-  const sendMessage = () => {
-    if (!selectedFriend) {
-      setError('Please select a friend to chat with');
+  const sendMessage = async () => {
+    if (!message.trim() || !connected || !stompClient || !selectedFriend) {
       return;
     }
-    
-    if (message.trim()) {
-      const messageData = {
+
+    try {
+      const timestamp = new Date().toISOString();
+      const tempId = `temp-${Date.now()}`;
+      
+      // Create a temporary message to display immediately
+      const tempMessage = {
+        id: tempId,
         content: message,
         sender: user.sub || user.email,
-        recipient: selectedFriend.id,
-        timestamp: new Date().toISOString(),
+        senderName: user.name,
+        timestamp: timestamp,
+        status: 'sending',
         type: 'TEXT'
       };
-
-      // Add message to local state immediately for display
-      setMessages(prev => [...prev, messageData]);
       
-      // Then try to send via websocket
-      try {
-        if (stompClient?.connected) {
-          sendMessageToServer(messageData, stompClient);
-        } else {
-          console.log('No connection, queueing message');
-          messageQueueRef.current.push(messageData);
-          setError('Message queued. Waiting for connection...');
-          handleReconnect();
-        }
-      } catch (error) {
-        console.error('Error sending message:', error);
-        messageQueueRef.current.push(messageData);
+      // Add recipient information
+      if (selectedFriend.isGroup) {
+        tempMessage.groupId = selectedFriend.id;
+        tempMessage.isGroupMessage = true;
+      } else {
+        tempMessage.recipient = selectedFriend.id;
+        tempMessage.isGroupMessage = false;
       }
       
+      // Add to local messages immediately
+      setMessages(prevMessages => [...prevMessages, tempMessage]);
+      
+      // Prepare the message to send
+      const messageToSend = {
+        content: message,
+        sender: user.sub || user.email,
+        senderName: user.name || user.email.split('@')[0],
+        timestamp: timestamp,
+        type: 'TEXT'
+      };
+      
+      // Add appropriate routing information
+      if (selectedFriend.isGroup) {
+        messageToSend.groupId = selectedFriend.id;
+        
+        // Send to group topic
+        stompClient.publish({
+          destination: `/app/group/${selectedFriend.id}`,
+          body: JSON.stringify(messageToSend)
+        });
+      } else {
+        messageToSend.recipient = selectedFriend.id;
+        
+        // Send to direct message topic
+        stompClient.publish({
+          destination: `/app/chat/${user.sub}/${selectedFriend.id}`,
+          body: JSON.stringify(messageToSend)
+        });
+      }
+      
+      // Clear input
       setMessage('');
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again.');
     }
   };
 
@@ -721,7 +793,9 @@ const ChatPage = ({ user, onLogout }) => {
       <div key={index} className={messageClass}>
         <div className={`message-content ${isTemporary ? 'sending' : ''}`}>
           {!isSentByMe && (
-            <div className="message-sender">{msg.sender}</div>
+            <div className="message-sender">
+              {msg.senderName || msg.sender.split('@')[0]}
+            </div>
           )}
           
           {msg.type === 'IMAGE' ? (
