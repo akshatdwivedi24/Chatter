@@ -88,6 +88,7 @@ const ChatPage = ({ user, onLogout }) => {
   const audioChunksRef = useRef([]);
   const recordingTimeoutRef = useRef(null);
   const [selectedFriend, setSelectedFriend] = useState(null);
+  const [showFriendList, setShowFriendList] = useState(true);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -322,40 +323,75 @@ const ChatPage = ({ user, onLogout }) => {
     }
   }, [stompClient]);
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
+  const handleSelectFriend = (friend) => {
+    setSelectedFriend(friend);
+    setShowFriendList(false);
+    
+    // Reset messages when switching friends
+    setMessages([]);
+    
+    // Here you would fetch previous messages with this friend
+    fetchMessagesWithFriend(friend.id);
+  };
 
-    const messageData = {
-      type: 'TEXT',
-      sender: user.name,
-      content: message.trim(),
-      timestamp: new Date().toISOString()
-    };
-
-    // Add message to local state immediately
-    setMessages(prev => [...prev, messageData]);
-    setMessage('');
-
+  const fetchMessagesWithFriend = async (friendId) => {
     try {
-      if (!stompClient?.connected) {
-        console.log('No connection, queueing message');
-        messageQueueRef.current.push(messageData);
-        setError('Message queued. Waiting for connection...');
-        handleReconnect();
-        return;
-      }
-
-      stompClient.publish({
-        destination: "/app/chat",
-        body: JSON.stringify(messageData)
-      });
-
-      setError(null);
+      const token = localStorage.getItem('token');
+      // This would be your API endpoint to fetch messages with a specific friend
+      // const response = await axios.get(`http://localhost:8081/api/messages/${friendId}`, {
+      //   headers: {
+      //     'Authorization': `Bearer ${token}`
+      //   }
+      // });
+      // setMessages(response.data);
+      
+      // For now we'll just use existing messages or empty array
+      console.log(`Fetching messages with friend: ${friendId}`);
     } catch (error) {
-      console.error('Error sending message:', error);
-      messageQueueRef.current.push(messageData);
-      setError('Failed to send message. It will be retried when connection is restored.');
-      handleReconnect();
+      console.error('Error fetching messages:', error);
+      setError('Failed to load messages. Please try again.');
+    }
+  };
+
+  const goBackToFriendList = () => {
+    setShowFriendList(true);
+    setSelectedFriend(null);
+  };
+
+  const sendMessage = () => {
+    if (!selectedFriend) {
+      setError('Please select a friend to chat with');
+      return;
+    }
+    
+    if (message.trim()) {
+      const messageData = {
+        content: message,
+        sender: user.sub || user.email,
+        recipient: selectedFriend.id,
+        timestamp: new Date().toISOString(),
+        type: 'TEXT'
+      };
+
+      // Add message to local state immediately for display
+      setMessages(prev => [...prev, messageData]);
+      
+      // Then try to send via websocket
+      try {
+        if (stompClient?.connected) {
+          sendMessageToServer(messageData, stompClient);
+        } else {
+          console.log('No connection, queueing message');
+          messageQueueRef.current.push(messageData);
+          setError('Message queued. Waiting for connection...');
+          handleReconnect();
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        messageQueueRef.current.push(messageData);
+      }
+      
+      setMessage('');
     }
   };
 
@@ -600,20 +636,22 @@ const ChatPage = ({ user, onLogout }) => {
     }
   };
 
-  const renderMessage = (message) => {
-    const isTemporary = message.status === 'sending';
-    const messageClass = `message-content ${isTemporary ? 'sending' : ''}`;
-
-    switch (message.type) {
-      case 'IMAGE':
-        return (
-          <div className={messageClass}>
-            {message.sender !== user.name && (
-              <div className="message-sender">{message.sender}</div>
-            )}
+  const renderMessage = (msg, index) => {
+    const isSentByMe = msg.sender === (user.sub || user.email);
+    const messageClass = `message ${isSentByMe ? 'sent' : 'received'}`;
+    const isTemporary = msg.status === 'sending';
+    
+    return (
+      <div key={index} className={messageClass}>
+        <div className={`message-content ${isTemporary ? 'sending' : ''}`}>
+          {!isSentByMe && (
+            <div className="message-sender">{msg.sender}</div>
+          )}
+          
+          {msg.type === 'IMAGE' ? (
             <div className="image-message">
               <img 
-                src={`data:${message.contentType};base64,${message.content}`}
+                src={`data:${msg.contentType};base64,${msg.content}`}
                 alt="Shared image"
                 style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
                 onError={(e) => {
@@ -622,177 +660,164 @@ const ChatPage = ({ user, onLogout }) => {
                 }}
               />
             </div>
-            <div className="message-time">
-              {formatTime(message.timestamp)}
-              {isTemporary && ' (sending...)'}
-            </div>
-          </div>
-        );
-      case 'VOICE':
-        return (
-          <div className={messageClass}>
-            {message.sender !== user.name && (
-              <div className="message-sender">{message.sender}</div>
-            )}
+          ) : msg.type === 'VOICE' ? (
             <div className="voice-message">
               <audio 
                 controls
-                src={`data:${message.contentType};base64,${message.content}`}
+                src={`data:${msg.contentType};base64,${msg.content}`}
                 style={{ maxWidth: '200px' }}
               />
             </div>
-            <div className="message-time">
-              {formatTime(message.timestamp)}
-              {isTemporary && ' (sending...)'}
-            </div>
+          ) : (
+            <div className="text-message">{msg.content}</div>
+          )}
+          
+          <div className="message-time">
+            {formatTime(msg.timestamp)}
+            {isTemporary && ' (sending...)'}
           </div>
-        );
-      default:
-        return (
-          <div className={messageClass}>
-            {message.sender !== user.name && (
-              <div className="message-sender">{message.sender}</div>
-            )}
-            <div className="text-message">{message.content}</div>
-            <div className="message-time">
-              {formatTime(message.timestamp)}
-              {isTemporary && ' (sending...)'}
-            </div>
-          </div>
-        );
-    }
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="app-container">
-      {/* Side panel with friend list */}
-      <div className="side-panel">
-        <FriendList user={user} />
+    <div className={`chat-container ${darkMode ? 'dark-mode' : ''}`}>
+      <div className="chat-header">
+        {!showFriendList && selectedFriend && (
+          <button className="back-button" onClick={goBackToFriendList}>
+            <i className="fa fa-arrow-left"></i>
+          </button>
+        )}
+        
+        {!showFriendList && selectedFriend ? (
+          <div className="selected-friend-info">
+            <div className="friend-avatar">
+              {selectedFriend.name.substring(0, 1).toUpperCase()}
+            </div>
+            <div className="friend-name-status">
+              <h3>{selectedFriend.name}</h3>
+              <span className="friend-email">{selectedFriend.email}</span>
+              <span className="status">Online</span>
+            </div>
+          </div>
+        ) : (
+          <div className="user-profile-info">
+            <div className="user-avatar">
+              {user.name ? user.name.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : "U")}
+            </div>
+            <div className="user-details">
+              <h3>{user.name || "User"}</h3>
+              <span className="user-email">{user.sub || user.email}</span>
+            </div>
+          </div>
+        )}
+        
+        <div className="header-right">
+          <div className="theme-selector">
+            <select 
+              value={currentTheme} 
+              onChange={(e) => setCurrentTheme(e.target.value)}
+              className="theme-dropdown"
+            >
+              {Object.entries(THEMES).map(([key, theme]) => (
+                <option key={key} value={key}>{theme.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="theme-switch">
+            <input 
+              type="checkbox" 
+              id="darkmode-toggle" 
+              checked={darkMode}
+              onChange={() => setDarkMode(!darkMode)}
+            />
+            <label htmlFor="darkmode-toggle">
+              <span className="sr-only">Toggle dark mode</span>
+            </label>
+            <span className="mode-label">{darkMode ? 'Dark' : 'Light'}</span>
+          </div>
+          
+          <button className="logout-button" onClick={onLogout}>
+            <i className="fa fa-sign-out"></i>
+          </button>
+        </div>
       </div>
       
-      {/* Main chat panel */}
-      <div className={`chat-container ${darkMode ? 'dark-mode' : ''} theme-${currentTheme}`}>
-        <div className="chat-header">
-          <div className="header-left">
-            <h2>{selectedFriend || 'Global Chat'}</h2>
+      {showFriendList ? (
+        <FriendList user={user} onSelectFriend={handleSelectFriend} />
+      ) : (
+        <>
+          <div className="messages-container">
+            {error && <div className="error-message">{error}</div>}
+            {isConnecting && !connected && (
+              <div className="connecting-message">
+                <div className="spinner"></div>
+                <p>Connecting to chat server...</p>
+              </div>
+            )}
+            {messages.length === 0 ? (
+              <div className="empty-messages">
+                <p>No messages yet. Start a conversation!</p>
+              </div>
+            ) : (
+              <div className="messages-list">
+                {messages.map((msg, index) => renderMessage(msg, index))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </div>
           
-          <div className="header-right">
-            <div className="theme-selector">
-              <select 
-                value={currentTheme}
-                onChange={(e) => setCurrentTheme(e.target.value)}
-                aria-label="Select chat theme"
-              >
-                {Object.keys(THEMES).map(theme => (
-                  <option key={theme} value={theme}>{THEMES[theme].name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="theme-switch">
-              <label className="switch">
-                <input 
-                  type="checkbox"
-                  checked={darkMode}
-                  onChange={() => setDarkMode(!darkMode)}
-                  aria-label="Toggle dark mode"
-                />
-                <span className="slider round"></span>
-              </label>
-              <span className="mode-label">{darkMode ? 'Dark' : 'Light'}</span>
-            </div>
-            
-            <button onClick={onLogout} className="logout-button">
-              Logout
-            </button>
-          </div>
-        </div>
-        
-        <div className="messages-container">
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
-          
-          {isConnecting && (
-            <div className="loading-indicator">
-              <div className="spinner"></div>
-              <p>Connecting to chat server...</p>
-            </div>
-          )}
-          
-          {!connected && !isConnecting && (
-            <div className="connection-failed">
-              <p>Connection failed. Try refreshing the page.</p>
+          <div className="message-input-container">
+            <div className="message-box">
+              <input 
+                type="text" 
+                className="message-input" 
+                placeholder="Type a message..." 
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyPress}
+                disabled={!connected || isConnecting}
+              />
+  
+              <input 
+                type="file" 
+                accept="image/*" 
+                style={{display: 'none'}} 
+                ref={fileInputRef}
+                onChange={handleImageUpload} 
+              />
+              
               <button 
-                className="refresh-button"
-                onClick={() => window.location.reload()}
+                className="image-upload-btn" 
+                onClick={() => fileInputRef.current.click()}
+                disabled={!connected || isConnecting}
               >
-                Refresh
+                <i className="fa fa-camera"></i>
+              </button>
+              
+              <button 
+                className={`voice-record-btn ${isRecording ? 'recording' : ''}`}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={isRecording ? stopRecording : undefined}
+                disabled={!connected || isConnecting}
+              >
+                <i className="fa fa-microphone"></i>
+              </button>
+  
+              <button 
+                className="send-button" 
+                onClick={sendMessage}
+                disabled={!message.trim() || !connected || isConnecting}
+              >
+                <i className="fa fa-paper-plane"></i>
               </button>
             </div>
-          )}
-          
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`message ${msg.sender === user.name ? 'sent' : 'received'}`}
-            >
-              {renderMessage(msg)}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-        
-        <div className="message-input">
-          <button 
-            className="image-button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!connected}
-            title="Send an image"
-          >
-            <i className="fa fa-camera"></i>
-          </button>
-          
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            accept="image/*"
-            onChange={handleImageUpload}
-          />
-          
-          <button
-            className={`voice-button ${isRecording ? 'recording' : ''}`}
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            onMouseLeave={stopRecording}
-            disabled={!connected}
-            title={isRecording ? 'Release to send voice message' : 'Hold to record voice message'}
-          >
-            <i className={`fa ${isRecording ? 'fa-microphone-slash' : 'fa-microphone'}`}></i>
-          </button>
-          
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
-            disabled={!connected}
-          />
-          
-          <button
-            className="send-button"
-            onClick={sendMessage}
-            disabled={!connected || (!message.trim() && !isRecording)}
-          >
-            <i className="fa fa-paper-plane"></i>
-          </button>
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

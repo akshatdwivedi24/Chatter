@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import '../styles/friends.css';
 
-const FriendList = ({ user }) => {
+const FriendList = ({ user, onSelectFriend }) => {
     const [friends, setFriends] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]);
     const [newFriendEmail, setNewFriendEmail] = useState('');
@@ -144,6 +144,19 @@ const FriendList = ({ user }) => {
         }
     };
 
+    const handleMessageClick = (friend) => {
+        // Determine if the current user is userId or friendId
+        const friendId = friend.userId === user.sub ? friend.friendId : friend.userId;
+        const friendEmail = friendId; // Currently using email as the ID
+        const friendName = friendId.split('@')[0]; // Extract name from email
+        
+        onSelectFriend({
+            id: friendId,
+            name: friendName,
+            email: friendEmail
+        });
+    };
+
     return (
         <div className="friends-container">
             <div className="friends-tabs">
@@ -191,19 +204,28 @@ const FriendList = ({ user }) => {
                             {friends.map(friend => {
                                 // Determine if the current user is userId or friendId
                                 const friendId = friend.userId === user.sub ? friend.friendId : friend.userId;
+                                // Extract name from email (if possible)
+                                const friendName = friendId.split('@')[0];
+                                
                                 return (
                                     <li key={friend.id} className="friend-item">
                                         <div className="friend-info">
                                             <div className="avatar">
-                                                {friendId.substring(0, 1).toUpperCase()}
+                                                {friendName.substring(0, 1).toUpperCase()}
                                             </div>
-                                            <div>
-                                                <div className="friend-name">{friendId}</div>
+                                            <div className="friend-details">
+                                                <div className="friend-name">{friendName}</div>
+                                                <div className="friend-email">{friendId}</div>
                                                 <div className="friend-status">Online</div>
                                             </div>
                                         </div>
                                         <div className="friend-actions">
-                                            <button className="message-btn">Message</button>
+                                            <button 
+                                                className="message-btn"
+                                                onClick={() => handleMessageClick(friend)}
+                                            >
+                                                Message
+                                            </button>
                                             <button 
                                                 className="remove-btn"
                                                 onClick={() => removeFriend(friendId)}
@@ -231,7 +253,8 @@ const FriendList = ({ user }) => {
                                             {request.userId.substring(0, 1).toUpperCase()}
                                         </div>
                                         <div className="request-details">
-                                            <div className="requester-name">{request.userId}</div>
+                                            <div className="requester-name">{request.userId.split('@')[0]}</div>
+                                            <div className="requester-email">{request.userId}</div>
                                             <div className="request-time">
                                                 {new Date(request.createdAt).toLocaleDateString()}
                                             </div>
