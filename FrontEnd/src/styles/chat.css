@@ -1618,11 +1618,15 @@
   justify-content: center;
   font-weight: bold;
   font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .user-details {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  text-align: left;
 }
 
 .user-details h3 {
@@ -1630,12 +1634,27 @@
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-color);
+  padding-left: 0;
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  margin-bottom: 4px;
 }
 
 .user-email {
   font-size: 0.85rem;
   color: #666;
   margin-top: 2px;
+  padding-left: 0;
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .dark-mode .user-details h3 {
