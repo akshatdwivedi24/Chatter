@@ -10,6 +10,8 @@ const FriendList = ({ user, onSelectFriend }) => {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
     const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'requests'
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
+    const [selectedAvatar, setSelectedAvatar] = useState({ name: '', letter: '' });
 
     // Fetch friends and pending requests
     useEffect(() => {
@@ -157,8 +159,42 @@ const FriendList = ({ user, onSelectFriend }) => {
         });
     };
 
+    const handleAvatarClick = (name, letter) => {
+        setSelectedAvatar({ name, letter });
+        setShowAvatarModal(true);
+    };
+
+    const closeAvatarModal = () => {
+        setShowAvatarModal(false);
+    };
+
+    // Avatar Modal Component
+    const AvatarModal = () => {
+        if (!showAvatarModal) return null;
+        
+        return (
+            <div className="avatar-modal-overlay" onClick={closeAvatarModal}>
+                <div className="avatar-modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="avatar-modal-header">
+                        <h3>{selectedAvatar.name}</h3>
+                        <button className="close-button" onClick={closeAvatarModal}>
+                            <i className="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div className="avatar-modal-body">
+                        <div className="large-avatar">
+                            {selectedAvatar.letter}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="friends-container">
+            <AvatarModal />
+            
             <div className="friends-tabs">
                 <button 
                     className={`tab-button ${activeTab === 'friends' ? 'active' : ''}`}
@@ -206,12 +242,16 @@ const FriendList = ({ user, onSelectFriend }) => {
                                 const friendId = friend.userId === user.sub ? friend.friendId : friend.userId;
                                 // Extract name from email (if possible)
                                 const friendName = friendId.split('@')[0];
+                                const avatarLetter = friendName.substring(0, 1).toUpperCase();
                                 
                                 return (
                                     <li key={friend.id} className="friend-item">
                                         <div className="friend-info">
-                                            <div className="avatar">
-                                                {friendName.substring(0, 1).toUpperCase()}
+                                            <div 
+                                                className="avatar"
+                                                onClick={() => handleAvatarClick(friendName, avatarLetter)}
+                                            >
+                                                {avatarLetter}
                                             </div>
                                             <div className="friend-details">
                                                 <div className="friend-name">{friendName}</div>
@@ -246,36 +286,44 @@ const FriendList = ({ user, onSelectFriend }) => {
                         <div className="empty-message">No pending friend requests.</div>
                     ) : (
                         <ul>
-                            {pendingRequests.map(request => (
-                                <li key={request.id} className="request-item">
-                                    <div className="request-info">
-                                        <div className="avatar">
-                                            {request.userId.substring(0, 1).toUpperCase()}
-                                        </div>
-                                        <div className="request-details">
-                                            <div className="requester-name">{request.userId.split('@')[0]}</div>
-                                            <div className="requester-email">{request.userId}</div>
-                                            <div className="request-time">
-                                                {new Date(request.createdAt).toLocaleDateString()}
+                            {pendingRequests.map(request => {
+                                const avatarLetter = request.userId.substring(0, 1).toUpperCase();
+                                const requesterName = request.userId.split('@')[0];
+                                
+                                return (
+                                    <li key={request.id} className="request-item">
+                                        <div className="request-info">
+                                            <div 
+                                                className="avatar"
+                                                onClick={() => handleAvatarClick(requesterName, avatarLetter)}
+                                            >
+                                                {avatarLetter}
+                                            </div>
+                                            <div className="request-details">
+                                                <div className="requester-name">{requesterName}</div>
+                                                <div className="requester-email">{request.userId}</div>
+                                                <div className="request-time">
+                                                    {new Date(request.createdAt).toLocaleDateString()}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="request-actions">
-                                        <button 
-                                            className="accept-btn"
-                                            onClick={() => acceptFriendRequest(request.id)}
-                                        >
-                                            Accept
-                                        </button>
-                                        <button 
-                                            className="reject-btn"
-                                            onClick={() => rejectFriendRequest(request.id)}
-                                        >
-                                            Reject
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
+                                        <div className="request-actions">
+                                            <button 
+                                                className="accept-btn"
+                                                onClick={() => acceptFriendRequest(request.id)}
+                                            >
+                                                Accept
+                                            </button>
+                                            <button 
+                                                className="reject-btn"
+                                                onClick={() => rejectFriendRequest(request.id)}
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    </li>
+                                );
+                            })}
                         </ul>
                     )}
                 </div>
