@@ -1,0 +1,263 @@
+/* Friends component styling */
+.friends-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--background-color, #fff);
+  border-right: 1px solid var(--border-color, #ddd);
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Tabs for switching between friends and requests */
+.friends-tabs {
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid var(--border-color, #ddd);
+}
+
+.tab-button {
+  flex: 1;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color, #333);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button.active {
+  color: var(--button-bg, #0084FF);
+  border-bottom: 2px solid var(--button-bg, #0084FF);
+}
+
+.tab-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background-color: #FF3B30;
+  border-radius: 50%;
+}
+
+/* Add friend form styling */
+.add-friend-form {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color, #ddd);
+}
+
+.add-friend-form form {
+  display: flex;
+  gap: 8px;
+}
+
+.add-friend-form input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 20px;
+  font-size: 14px;
+  background-color: var(--input-bg, #f0f2f5);
+  color: var(--text-color, #333);
+}
+
+.add-friend-form button {
+  padding: 8px 16px;
+  background-color: var(--button-bg, #0084FF);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-friend-form button:hover {
+  opacity: 0.9;
+}
+
+.add-friend-form button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: #FF3B30;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.success-message {
+  color: #34C759;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+/* Friends list styling */
+.friends-list, .friend-requests {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.friends-list h3, .friend-requests h3 {
+  padding: 16px;
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-color, #333);
+  border-bottom: 1px solid var(--border-color, #ddd);
+}
+
+.empty-message {
+  padding: 16px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.loading {
+  padding: 16px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Friend item styling */
+.friend-item, .request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #ddd);
+  transition: background-color 0.2s ease;
+}
+
+.friend-item:hover, .request-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.friend-info, .request-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--button-bg, #0084FF);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.friend-name, .requester-name {
+  font-weight: 500;
+  color: var(--text-color, #333);
+  margin-bottom: 4px;
+}
+
+.friend-status {
+  font-size: 12px;
+  color: #34C759;
+}
+
+.request-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.friend-actions, .request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.message-btn, .accept-btn, .reject-btn, .remove-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.message-btn {
+  background-color: var(--button-bg, #0084FF);
+  color: #fff;
+}
+
+.accept-btn {
+  background-color: #34C759;
+  color: #fff;
+}
+
+.reject-btn {
+  background-color: #FF3B30;
+  color: #fff;
+}
+
+.remove-btn {
+  background-color: #FF3B30;
+  color: #fff;
+}
+
+.message-btn:hover, .accept-btn:hover, .reject-btn:hover, .remove-btn:hover {
+  opacity: 0.9;
+}
+
+/* Dark mode styles */
+.dark-mode .friends-container {
+  background-color: var(--chat-bg, #1f1f1f);
+  border-right-color: var(--border-color, #333);
+}
+
+.dark-mode .friends-tabs,
+.dark-mode .add-friend-form,
+.dark-mode .friends-list h3,
+.dark-mode .friend-requests h3,
+.dark-mode .friend-item,
+.dark-mode .request-item {
+  border-color: var(--border-color, #333);
+}
+
+.dark-mode .tab-button {
+  color: #fff;
+}
+
+.dark-mode .friend-name,
+.dark-mode .requester-name {
+  color: #fff;
+}
+
+.dark-mode .add-friend-form input {
+  background-color: var(--input-bg, #2c2c2c);
+  color: #fff;
+  border-color: var(--border-color, #333);
+}
+
+.dark-mode .friend-item:hover, 
+.dark-mode .request-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Responsive styles for small screens */
+@media (max-width: 768px) {
+  .friend-actions, .request-actions {
+    flex-direction: column;
+  }
+} 

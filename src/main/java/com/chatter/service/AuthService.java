@@ -22,6 +22,9 @@ public class AuthService {
 
     @Autowired
     private UserRepository userRepository;
+    
+    @Autowired
+    private JwtService jwtService;
 
     private GoogleIdTokenVerifier verifier;
 
@@ -50,12 +53,19 @@ public class AuthService {
                     newUser.setGoogleUser(true);
                     return userRepository.save(newUser);
                 });
+                
+        // Generate JWT token
+        String jwtToken = jwtService.generateToken(email);
 
-        return Map.of("user", Map.of(
-            "id", user.getId(),
-            "name", user.getName(),
-            "email", user.getEmail(),
-            "profilePicture", user.getProfilePicture()
-        ));
+        return Map.of(
+            "token", jwtToken,
+            "user", Map.of(
+                "id", user.getId(),
+                "name", user.getName(),
+                "email", user.getEmail(),
+                "profilePicture", user.getProfilePicture(),
+                "sub", email  // Add the subject (email) as sub for easier access in frontend
+            )
+        );
     }
 } 

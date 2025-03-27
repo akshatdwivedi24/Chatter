@@ -81,7 +81,7 @@ const AuthPage = ({ onAuthSuccess }) => {
         throw new Error('No credential received from Google');
       }
 
-      const apiResponse = await fetch('http://localhost:8080/api/auth/google', {
+      const apiResponse = await fetch('http://localhost:8081/api/auth/google', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,10 +98,13 @@ const AuthPage = ({ onAuthSuccess }) => {
       const data = await apiResponse.json();
       console.log('Server response:', data);
 
-      if (data.user) {
-        onAuthSuccess({ user: data.user });
+      // Extract both token and user data from the response
+      if (data.token && data.user) {
+        console.log('JWT token received:', data.token);
+        onAuthSuccess(data); // Pass both token and user data
       } else {
-        throw new Error('Invalid response from server');
+        console.error('Invalid server response:', data);
+        throw new Error('Invalid response from server: missing token or user data');
       }
     } catch (err) {
       console.error('Sign-in error:', err);
