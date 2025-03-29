@@ -2,18 +2,32 @@
 @import url('https://use.fontawesome.com/releases/v5.15.4/css/all.css');
 
 :root {
-  --primary-color: #075E54;
-  --secondary-color: #DCF8C6;
-  --accent-color: #25D366;
-  --background-color: #E5DDD5;
-  --message-box-color: #ffffff;
-  --text-color: #2C3E50;
-  --sent-message-bg: #DCF8C6;
-  --received-message-bg: #ffffff;
-  --header-bg: #075E54;
+  /* Default Discord theme colors */
+  --primary-color: #7289DA;
+  --secondary-color: #99AAB5;
+  --accent-color: #43B581;
+  --background-color: #36393F;
+  --message-box-color: #40444B;
+  --text-color: #FFFFFF;
+  --sent-message-bg: #7289DA;
+  --received-message-bg: #40444B;
+  --header-bg: #7289DA;
   --border-color: rgba(0, 0, 0, 0.1);
+  --input-bg: #FFFFFF;
+  --input-text-color: #333333;
 }
 
+/* Dark mode variables */
+.dark-mode {
+  --background-color: #202225;
+  --message-box-color: #2F3136;
+  --received-message-bg: #2F3136;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --input-bg: #40444B;
+  --input-text-color: #FFFFFF;
+}
+
+/* Base styles */
 body, #root {
   margin: 0;
   padding: 0;
@@ -44,30 +58,81 @@ body, #root {
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
 }
 
-/* Themed header */
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  background-color: var(--header-bg);
-  color: white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-/* Messages container with theme background */
+/* Messages container */
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 15px;
+  padding: 20px;
   background-color: var(--background-color);
-  background-image: var(--theme-pattern);
-  background-size: cover;
-  background-position: center;
+  position: relative;
 }
 
-/* Message bubbles with theme styling */
+/* Connecting message styles */
+.connecting-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 2rem;
+  border-radius: 8px;
+  color: white;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.connecting-message .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+.connecting-message p {
+  margin: 0;
+  font-size: 1rem;
+  text-align: center;
+}
+
+/* Error message styles */
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ff4444;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 4px;
+  z-index: 1000;
+  animation: slideDown 0.3s ease-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.error-message .retry-button {
+  background: transparent;
+  border: 1px solid white;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.error-message .retry-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Message styles */
 .message {
   display: flex;
   margin-bottom: 10px;
@@ -93,6 +158,9 @@ body, #root {
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
   overflow-wrap: break-word;
   word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sent .message-content {
@@ -110,7 +178,39 @@ body, #root {
   margin-right: auto;
 }
 
-/* Message input area styling */
+.text-message {
+  margin-right: 0;
+  line-height: 1.4;
+  padding-bottom: 4px;
+}
+
+.message-time {
+  font-size: 0.75em;
+  color: var(--text-color);
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-end;
+  margin-top: 7px;
+}
+
+.message-status {
+  color: var(--text-color);
+  opacity: 0.7;
+  font-size: 0.9em;
+  margin-left: 2px;
+}
+
+.message.sent .message-status {
+  color: var(--accent-color);
+}
+
+.message.received .message-status {
+  display: none;
+}
+
+/* Message input area */
 .message-input-container {
   position: relative;
   padding: 10px;
@@ -140,9 +240,10 @@ body, #root {
   outline: none;
 }
 
-/* Theme-specific button styling */
+/* Button styles */
 .image-upload-btn,
-.voice-record-btn {
+.voice-record-btn,
+.send-button {
   background: transparent;
   border: none;
   color: var(--primary-color);
@@ -160,37 +261,25 @@ body, #root {
 }
 
 .image-upload-btn:hover,
-.voice-record-btn:hover {
+.voice-record-btn:hover,
+.send-button:hover {
   background-color: rgba(0, 0, 0, 0.05);
   transform: scale(1.1);
 }
 
 .dark-mode .image-upload-btn:hover,
-.dark-mode .voice-record-btn:hover {
+.dark-mode .voice-record-btn:hover,
+.dark-mode .send-button:hover {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
 .send-button {
   background: var(--primary-color);
-  border: none;
   color: white;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0;
-  margin-left: 10px;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
 }
 
 .send-button:hover {
   background: var(--accent-color);
-  transform: scale(1.1);
 }
 
 .send-button:disabled {
@@ -199,6 +288,54 @@ body, #root {
   cursor: not-allowed;
   transform: none;
 }
+
+/* Animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translate(-50%, -100%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes messageAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode adjustments */
+.dark-mode {
+  --background-color: #202225;
+  --message-box-color: #2F3136;
+  --received-message-bg: #2F3136;
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .connecting-message {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.dark-mode .error-message {
+  background-color: #ff4444;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Rest of your existing CSS styles... */
 
 /* Add app-specific design elements */
 .instagram-theme .chat-header {
@@ -446,13 +583,6 @@ body, #root {
   color: red;
 }
 
-.messages-container {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  background-color: var(--background-color);
-}
-
 /* Remove the dark overlay in light mode */
 .messages-container::before {
   content: none;
@@ -488,12 +618,12 @@ body, #root {
 }
 
 .message-time {
-  font-size: 0.7rem;
-  color: #929292;
-  position: absolute;
-  bottom: 4px;
-  right: 10px;
-  margin-left: 10px;
+  font-size: 0.75em;
+  color: var(--text-color);
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .text-message {
@@ -1368,7 +1498,7 @@ body, #root {
   border-radius: 20px;
   margin-right: 10px;
   background-color: var(--input-bg);
-  color: var(--text-color);
+  color: var(--input-text-color);
 }
 
 .message-input button {
@@ -1627,39 +1757,31 @@ body, #root {
 .friend-name-status {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-  text-align: left;
+  gap: 2px;
 }
 
 .friend-name-status h3 {
   margin: 0;
   font-size: 1rem;
-  margin-bottom: 2px;
-  line-height: 1.2;
-  padding: 0;
+  color: var(--text-color);
 }
 
-.friend-name-status .friend-email {
+.friend-email {
   font-size: 0.8rem;
-  color: #666;
-  margin: 2px 0;
-  padding: 0;
-  line-height: 1.2;
-  display: block;
+  color: var(--text-color);
+  opacity: 0.7;
 }
 
-.friend-name-status .status {
-  font-size: 0.8rem;
-  color: #4caf50;
-  display: block;
-  margin-top: 2px;
-  line-height: 1.2;
-  padding: 0;
-}
-
-.dark-mode .friend-email {
-  color: #aaa;
+.avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
 .empty-messages {
@@ -2325,4 +2447,54 @@ button:hover i,
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: var(--message-box-color);
+  border-radius: 10px;
+  margin: 5px 0;
+  width: fit-content;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background-color: var(--text-color);
+  border-radius: 50%;
+  margin: 0 2px;
+  animation: typing 1s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.message-status {
+  color: var(--text-color);
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+
+.message.sent .message-status {
+  color: var(--accent-color);
+}
+
+.message.received .message-status {
+  display: none;
 } 

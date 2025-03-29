@@ -102,22 +102,22 @@ const THEMES = {
 const ChatPage = ({ user, onLogout }) => {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [stompClient, setStompClient] = useState(null);
   const [error, setError] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState('whatsapp');
-  const [isConnecting, setIsConnecting] = useState(true);
   const messagesEndRef = useRef(null);
   const connectionAttempts = useRef(0);
   const maxRetries = 5;
-  const isReconnecting = useRef(false);
   const messageQueueRef = useRef([]);
   const processedMessages = useRef(new Set());
-  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB (increased from 5MB)
-  const MAX_IMAGE_CHUNK_SIZE = 64 * 1024; // 64KB chunks for images
-  const MAX_VOICE_CHUNK_SIZE = 8 * 1024; // 8KB chunks for voice messages
-  const MAX_RECORDING_DURATION = 300000; // 5 minutes in milliseconds
+  const initialConnectionRef = useRef(false);
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+  const MAX_IMAGE_CHUNK_SIZE = 64 * 1024;
+  const MAX_VOICE_CHUNK_SIZE = 8 * 1024;
+  const MAX_RECORDING_DURATION = 300000;
   const fileInputRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
@@ -127,6 +127,11 @@ const ChatPage = ({ user, onLogout }) => {
   const [showFriendList, setShowFriendList] = useState(true);
   const profilePictureInputRef = useRef(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
+  const messageStatuses = useRef(new Map());
+  const [currentTheme, setCurrentTheme] = useState('discord');
+  const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -174,7 +179,6 @@ const ChatPage = ({ user, onLogout }) => {
     Object.entries(themeColors).forEach(([variable, value]) => {
       document.documentElement.style.setProperty(variable, value);
     });
-
   }, [currentTheme, darkMode]);
 
   // Load profile picture from localStorage on component mount
@@ -188,24 +192,32 @@ const ChatPage = ({ user, onLogout }) => {
     }
   }, [user]);
 
+  // Initialize WebSocket connection
   useEffect(() => {
     let activeConnection = false;
     let cleanupFunction = null;
+    let connectionTimeout = null;
 
-    const connect = async () => {
-      if (activeConnection) return;
-      activeConnection = true;
+    const initializeConnection = async () => {
+      if (!user || initialConnectionRef.current) return;
 
       try {
-        // Cleanup any existing connection
-        if (stompClient) {
-          await stompClient.deactivate();
-          setStompClient(null);
-        }
-        
         setIsConnecting(true);
-        console.log('Attempting to connect to WebSocket...');
-        
+        setError(null);
+
+        // Get the token from localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
+        // Cleanup any existing connection
+        if (stompClientRef.current) {
+          await stompClientRef.current.deactivate();
+          stompClientRef.current = null;
+        }
+
+        // Create WebSocket connection with token
         const socket = new SockJS('http://localhost:8081/ws');
         const stomp = new Client({
           webSocketFactory: () => socket,
@@ -215,7 +227,10 @@ const ChatPage = ({ user, onLogout }) => {
           reconnectDelay: 5000,
           heartbeatIncoming: 4000,
           heartbeatOutgoing: 4000,
-          connectionTimeout: 30000
+          connectionTimeout: 30000,
+          connectHeaders: {
+            'Authorization': `Bearer ${token}`
+          }
         });
 
         // Setup connection handlers before activating
@@ -224,30 +239,16 @@ const ChatPage = ({ user, onLogout }) => {
           setConnected(true);
           setError(null);
           setIsConnecting(false);
-          setIsReconnecting(false);
           connectionAttempts.current = 0;
+          initialConnectionRef.current = true;
+          stompClientRef.current = stomp;
+          setStompClient(stomp);
 
-          // Subscribe to messages
-          const subscription = stomp.subscribe('/topic/messages', (message) => {
-            try {
-              const receivedMessage = JSON.parse(message.body);
-              console.log('Received message:', receivedMessage);
-              
-              if (receivedMessage.type === 'IMAGE_CHUNK') {
-                handleImageChunk(receivedMessage);
-              } else if (receivedMessage.type === 'VOICE_CHUNK') {
-                handleVoiceChunk(receivedMessage);
-              } else {
-                const messageKey = `${receivedMessage.type || 'TEXT'}-${receivedMessage.sender}-${receivedMessage.timestamp}`;
-                if (!processedMessages.current.has(messageKey)) {
-                  processedMessages.current.add(messageKey);
-                  setMessages(prev => [...prev, receivedMessage]);
-                }
-              }
-            } catch (error) {
-              console.error('Error parsing message:', error);
-            }
-          });
+          // Clear any existing connection timeout
+          if (connectionTimeout) {
+            clearTimeout(connectionTimeout);
+            connectionTimeout = null;
+          }
 
           // Process queued messages
           if (messageQueueRef.current.length > 0) {
@@ -258,7 +259,6 @@ const ChatPage = ({ user, onLogout }) => {
           // Store cleanup function
           cleanupFunction = () => {
             try {
-              subscription.unsubscribe();
               stomp.deactivate();
             } catch (error) {
               console.error('Error during cleanup:', error);
@@ -278,17 +278,26 @@ const ChatPage = ({ user, onLogout }) => {
           console.log('WebSocket connection closed');
           setConnected(false);
           setStompClient(null);
+          stompClientRef.current = null;
           activeConnection = false;
           
-          if (!isReconnecting.current && connectionAttempts.current < maxRetries) {
+          if (connectionAttempts.current < maxRetries) {
             setError('Connection lost. Reconnecting...');
             handleReconnect();
           }
         };
 
+        // Set a connection timeout
+        connectionTimeout = setTimeout(() => {
+          if (!stomp.connected) {
+            console.error('Connection timeout');
+            setError('Connection timeout. Please check your internet connection.');
+            stomp.deactivate();
+          }
+        }, 30000);
+
         // Activate the connection
         await stomp.activate();
-        setStompClient(stomp);
       } catch (error) {
         console.error('Error creating WebSocket connection:', error);
         setError('Failed to connect to chat server. Retrying...');
@@ -297,16 +306,20 @@ const ChatPage = ({ user, onLogout }) => {
       }
     };
 
-    connect();
+    // Initialize connection when component mounts or user changes
+    initializeConnection();
 
     // Cleanup function
     return () => {
       if (cleanupFunction) {
         cleanupFunction();
       }
+      if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+      }
       activeConnection = false;
     };
-  }, []); // Run only once on component mount
+  }, [user]); // Run when user changes
 
   const processMessageQueue = async (client) => {
     const queue = [...messageQueueRef.current];
@@ -347,60 +360,65 @@ const ChatPage = ({ user, onLogout }) => {
   };
 
   const handleReconnect = useCallback(() => {
-    if (isReconnecting.current) {
-      console.log('Reconnection already in progress, skipping...');
+    if (connectionAttempts.current >= maxRetries) {
+      setIsConnecting(false);
+      setError('Unable to connect to chat server. Please check your connection and refresh the page.');
       return;
     }
-    
-    isReconnecting.current = true;
+
     connectionAttempts.current += 1;
     setIsConnecting(true);
     
-    if (connectionAttempts.current <= maxRetries) {
-      console.log(`Reconnection attempt ${connectionAttempts.current}/${maxRetries}`);
-      const delay = Math.min(1000 * Math.pow(2, connectionAttempts.current - 1), 10000);
-      
-      setTimeout(() => {
-        isReconnecting.current = false;
-        // Force cleanup of existing client
-        if (stompClient) {
-          stompClient.deactivate()
-            .catch(error => console.error('Error deactivating client:', error))
-            .finally(() => {
-              setStompClient(null);
-              // Trigger a new connection attempt
-              const connect = async () => {
-                try {
-                  const socket = new SockJS('http://localhost:8081/ws');
-                  const stomp = new Client({
-                    webSocketFactory: () => socket,
-                    debug: (str) => {
-                      console.log('STOMP: ' + str);
-                    },
-                    reconnectDelay: 5000,
-                    heartbeatIncoming: 4000,
-                    heartbeatOutgoing: 4000,
-                    connectionTimeout: 30000
-                  });
-                  await stomp.activate();
-                  setStompClient(stomp);
-                } catch (error) {
-                  console.error('Error during reconnection:', error);
-                  handleReconnect();
+    console.log(`Reconnection attempt ${connectionAttempts.current}/${maxRetries}`);
+    const delay = Math.min(1000 * Math.pow(2, connectionAttempts.current - 1), 10000);
+    
+    setTimeout(() => {
+      // Force cleanup of existing client
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate()
+          .catch(error => console.error('Error deactivating client:', error))
+          .finally(() => {
+            stompClientRef.current = null;
+            setStompClient(null);
+            // Trigger a new connection attempt
+            const connect = async () => {
+              try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                  throw new Error('No authentication token found');
                 }
-              };
-              connect();
-            });
-        }
-      }, delay);
-    } else {
-      setIsConnecting(false);
-      setError('Unable to connect to chat server. Please check your connection and refresh the page.');
-      isReconnecting.current = false;
-    }
-  }, [stompClient]);
+
+                const socket = new SockJS('http://localhost:8081/ws');
+                const stomp = new Client({
+                  webSocketFactory: () => socket,
+                  debug: (str) => {
+                    console.log('STOMP: ' + str);
+                  },
+                  reconnectDelay: 5000,
+                  heartbeatIncoming: 4000,
+                  heartbeatOutgoing: 4000,
+                  connectionTimeout: 30000,
+                  connectHeaders: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+                await stomp.activate();
+                stompClientRef.current = stomp;
+                setStompClient(stomp);
+              } catch (error) {
+                console.error('Error during reconnection:', error);
+                handleReconnect();
+              }
+            };
+            connect();
+          });
+      }
+    }, delay);
+  }, []);
 
   const handleSelectFriend = (friend) => {
+    if (!friend) return;
+
     setSelectedFriend(friend);
     setShowFriendList(false);
     setMessages([]);
@@ -409,32 +427,61 @@ const ChatPage = ({ user, onLogout }) => {
     // Connect to the chat and subscribe to the appropriate topic
     if (connected && stompClient) {
       // First unsubscribe from any existing subscription
-      if (selectedFriend) {
-        const prevChatTopic = `/topic/chat/${user.sub}_${selectedFriend.id}`;
-        const prevChatTopicReverse = `/topic/chat/${selectedFriend.id}_${user.sub}`;
-        try {
-          stompClient.unsubscribe(prevChatTopic);
-          stompClient.unsubscribe(prevChatTopicReverse);
-        } catch (err) {
-          console.warn('Error unsubscribing from previous topic', err);
-        }
+      try {
+        // Unsubscribe from all existing chat subscriptions
+        Object.keys(stompClient.subscriptions).forEach(subId => {
+          stompClient.unsubscribe(subId);
+        });
+      } catch (err) {
+        console.warn('Error unsubscribing from previous topics', err);
       }
 
       // Subscribe to new topics
       if (friend.isGroup) {
         // For groups, subscribe to the group topic
         const groupTopic = `/topic/group/${friend.id}`;
-        stompClient.subscribe(groupTopic, onMessageReceived);
+        stompClient.subscribe(groupTopic, (message) => {
+          try {
+            const receivedMessage = JSON.parse(message.body);
+            console.log('Received group message:', receivedMessage);
+            
+            // Skip if this is our own message
+            if (receivedMessage.sender === user.username) {
+              return;
+            }
+
+            // Add the message to the messages state
+            setMessages(prev => [...prev, receivedMessage]);
+          } catch (error) {
+            console.error('Error parsing group message:', error);
+          }
+        });
         
         // Load previous group messages
         fetchPreviousMessages(friend.id, true);
       } else {
-        // For direct messages, subscribe to both directions of the conversation
+        // For direct messages, subscribe to the specific chat topic
         const chatTopic = `/topic/chat/${user.sub}_${friend.id}`;
-        const chatTopicReverse = `/topic/chat/${friend.id}_${user.sub}`;
         
-        stompClient.subscribe(chatTopic, onMessageReceived);
-        stompClient.subscribe(chatTopicReverse, onMessageReceived);
+        const messageHandler = (message) => {
+          try {
+            const receivedMessage = JSON.parse(message.body);
+            console.log('Received direct message:', receivedMessage);
+            
+            // Skip if this is our own message
+            if (receivedMessage.sender === user.username) {
+              return;
+            }
+
+            // Add the message to the messages state
+            setMessages(prev => [...prev, receivedMessage]);
+          } catch (error) {
+            console.error('Error parsing direct message:', error);
+          }
+        };
+
+        // Subscribe to the chat topic
+        stompClient.subscribe(chatTopic, messageHandler);
         
         // Load previous direct messages
         fetchPreviousMessages(friend.id, false);
@@ -476,70 +523,43 @@ const ChatPage = ({ user, onLogout }) => {
   };
 
   const sendMessage = async () => {
-    if (!message.trim() || !connected || !stompClient || !selectedFriend) {
-      return;
-    }
+    if (!message.trim() || !selectedFriend) return;
+
+    const messageData = {
+      sender: user.username,
+      recipient: selectedFriend.username,
+      content: message,
+      timestamp: new Date().toISOString(),
+      messageStatus: 'SENT',
+      type: 'TEXT',
+      id: Date.now().toString(),
+      groupId: selectedFriend.isGroup ? selectedFriend.id : undefined
+    };
 
     try {
-      const timestamp = new Date().toISOString();
-      const tempId = `temp-${Date.now()}`;
-      
-      // Create a temporary message to display immediately
-      const tempMessage = {
-        id: tempId,
-        content: message,
-        sender: user.sub || user.email,
-        senderName: user.name,
-        timestamp: timestamp,
-        status: 'sending',
-        type: 'TEXT'
-      };
-      
-      // Add recipient information
-      if (selectedFriend.isGroup) {
-        tempMessage.groupId = selectedFriend.id;
-        tempMessage.isGroupMessage = true;
-      } else {
-        tempMessage.recipient = selectedFriend.id;
-        tempMessage.isGroupMessage = false;
-      }
-      
-      // Add to local messages immediately
-      setMessages(prevMessages => [...prevMessages, tempMessage]);
-      
-      // Prepare the message to send
-      const messageToSend = {
-        content: message,
-        sender: user.sub || user.email,
-        senderName: user.name || user.email.split('@')[0],
-        timestamp: timestamp,
-        type: 'TEXT'
-      };
-      
-      // Add appropriate routing information
-      if (selectedFriend.isGroup) {
-        messageToSend.groupId = selectedFriend.id;
-        
-        // Send to group topic
+      if (stompClient && connected) {
+        // Add message to local state immediately
+        setMessages(prev => [...prev, messageData]);
+
+        // Send message to server
+        const destination = selectedFriend.isGroup 
+          ? `/app/group/chat` 
+          : `/app/chat/${user.sub}_${selectedFriend.id}`;
+
         stompClient.publish({
-          destination: `/app/group/${selectedFriend.id}`,
-          body: JSON.stringify(messageToSend)
+          destination: destination,
+          body: JSON.stringify(messageData)
         });
-      } else {
-        messageToSend.recipient = selectedFriend.id;
-        
-        // Send to direct message topic
-        stompClient.publish({
-          destination: `/app/chat/${user.sub}/${selectedFriend.id}`,
-          body: JSON.stringify(messageToSend)
-        });
+
+        // Update message status to delivered after sending
+        setTimeout(() => {
+          updateMessageStatus(messageData.id, 'DELIVERED');
+        }, 1000);
+
+        setMessage('');
       }
-      
-      // Clear input
-      setMessage('');
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message. Please try again.');
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
@@ -579,18 +599,18 @@ const ChatPage = ({ user, onLogout }) => {
 
   const sendImageMessage = async (base64Image, imageType) => {
     // Add temporary message to show upload progress
-    const tempMessage = {
+        const tempMessage = {
       type: 'IMAGE',
       content: base64Image,
       contentType: imageType,
-      sender: user.name,
-      timestamp: new Date().toISOString(),
-      status: 'sending'
-    };
+          sender: user.name,
+          timestamp: new Date().toISOString(),
+          status: 'sending'
+        };
     setMessages(prev => [...prev, tempMessage]);
 
     try {
-      if (!stompClient?.connected) {
+        if (!stompClient?.connected) {
         messageQueueRef.current.push({
           type: 'IMAGE',
           content: base64Image,
@@ -598,12 +618,12 @@ const ChatPage = ({ user, onLogout }) => {
           sender: user.name,
           timestamp: tempMessage.timestamp
         });
-        handleReconnect();
-        return;
-      }
+          handleReconnect();
+          return;
+        }
 
       // Split image into chunks if needed
-      const chunks = [];
+        const chunks = [];
       const totalChunks = Math.ceil(base64Image.length / MAX_IMAGE_CHUNK_SIZE);
       const messageId = Date.now().toString(); // Unique ID for this image
 
@@ -617,12 +637,12 @@ const ChatPage = ({ user, onLogout }) => {
       for (let i = 0; i < chunks.length; i++) {
         const chunkMessage = {
           type: 'IMAGE_CHUNK',
-          content: chunks[i],
+                content: chunks[i],
           contentType: imageType,
-          sender: user.name,
-          timestamp: tempMessage.timestamp,
-          messageId,
-          chunkIndex: i,
+                sender: user.name,
+                timestamp: tempMessage.timestamp,
+                messageId,
+                chunkIndex: i,
           totalChunks
         };
 
@@ -785,46 +805,24 @@ const ChatPage = ({ user, onLogout }) => {
   };
 
   const renderMessage = (msg, index) => {
-    const isSentByMe = msg.sender === (user.sub || user.email);
-    const messageClass = `message ${isSentByMe ? 'sent' : 'received'}`;
-    const isTemporary = msg.status === 'sending';
+    if (!msg || !user) return null;
+    
+    const isOwnMessage = msg.sender === user.username;
+    const messageStatus = messageStatuses.current.get(msg.id) || msg.messageStatus;
     
     return (
-      <div key={index} className={messageClass}>
-        <div className={`message-content ${isTemporary ? 'sending' : ''}`}>
-          {!isSentByMe && (
-            <div className="message-sender">
-              {msg.senderName || msg.sender.split('@')[0]}
-            </div>
-          )}
-          
-          {msg.type === 'IMAGE' ? (
-            <div className="image-message">
-              <img 
-                src={`data:${msg.contentType};base64,${msg.content}`}
-                alt="Shared image"
-                style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
-                onError={(e) => {
-                  console.error('Error loading image:', e);
-                  e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24"><text x="50%" y="50%" font-size="12" text-anchor="middle" dy=".3em">Image Error</text></svg>';
-                }}
-              />
-            </div>
-          ) : msg.type === 'VOICE' ? (
-            <div className="voice-message">
-              <audio 
-                controls
-                src={`data:${msg.contentType};base64,${msg.content}`}
-                style={{ maxWidth: '200px' }}
-              />
-            </div>
-          ) : (
-            <div className="text-message">{msg.content}</div>
-          )}
-          
+      <div key={index} className={`message ${isOwnMessage ? 'sent' : 'received'}`}>
+        <div className="message-content">
+          <div className="text-message">{msg.content}</div>
           <div className="message-time">
             {formatTime(msg.timestamp)}
-            {isTemporary && ' (sending...)'}
+            {isOwnMessage && (
+              <span className="message-status">
+                {messageStatus === 'SENT' && '  ✓'}
+                {messageStatus === 'DELIVERED' && '  ✓✓'}
+                {messageStatus === 'SEEN' && '  ✓✓'}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -907,7 +905,7 @@ const ChatPage = ({ user, onLogout }) => {
             <h3>Profile Picture</h3>
             <button className="close-button" onClick={() => setShowProfileModal(false)}>
               <i className="fa fa-times"></i>
-            </button>
+          </button>
           </div>
           <div className="profile-modal-body">
             <div className="profile-image-container">
@@ -918,7 +916,7 @@ const ChatPage = ({ user, onLogout }) => {
                   {user.name ? user.name.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : "U")}
                 </div>
               )}
-            </div>
+          </div>
             <div className="profile-modal-buttons">
               <button className="change-picture-button" onClick={() => profilePictureInputRef.current?.click()}>
                 <i className="fa fa-camera"></i> Change Picture
@@ -935,101 +933,143 @@ const ChatPage = ({ user, onLogout }) => {
     );
   };
 
+  useEffect(() => {
+    if (stompClient && connected) {
+      // Subscribe to typing indicators
+      const typingSubscription = stompClient.subscribe('/topic/typing', (message) => {
+        const data = JSON.parse(message.body);
+        if (data.recipient === user.username) {
+          setIsTyping(true);
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+          }, 3000);
+        }
+      });
+
+      // Subscribe to message status updates
+      const statusSubscription = stompClient.subscribe('/topic/message-status', (message) => {
+        const data = JSON.parse(message.body);
+        if (data.recipient === user.username) {
+          messageStatuses.current.set(data.id, data.messageStatus);
+          setMessages(prev => prev.map(msg => 
+            msg.id === data.id ? { ...msg, messageStatus: data.messageStatus } : msg
+          ));
+        }
+      });
+
+      return () => {
+        typingSubscription.unsubscribe();
+        statusSubscription.unsubscribe();
+      };
+    }
+  }, [stompClient, connected, user.username]);
+
+  const handleTyping = () => {
+    if (!stompClient || !connected || !selectedFriend || !user) return;
+
+    const typingMessage = {
+      sender: user.username,
+      recipient: selectedFriend.username,
+      isTyping: true,
+      timestamp: new Date().toISOString()
+    };
+
+    stompClient.publish({
+      destination: '/app/typing',
+      body: JSON.stringify(typingMessage)
+    });
+  };
+
+  const updateMessageStatus = (messageId, status) => {
+    if (!stompClient || !connected || !selectedFriend || !user) return;
+
+    const statusMessage = {
+      id: messageId,
+      sender: user.username,
+      recipient: selectedFriend.username,
+      messageStatus: status,
+      timestamp: new Date().toISOString()
+    };
+
+    stompClient.publish({
+      destination: '/app/message-status',
+      body: JSON.stringify(statusMessage)
+    });
+  };
+
   return (
     <div className={`chat-container ${darkMode ? 'dark-mode' : ''} ${currentTheme}-theme`}>
       <ProfilePictureModal />
       
       <div className="chat-header">
-        {!showFriendList && selectedFriend && (
-          <button className="back-button" onClick={goBackToFriendList}>
-            <i className="fa fa-arrow-left"></i>
-          </button>
-        )}
-        
-        {!showFriendList && selectedFriend ? (
-          <div className="selected-friend-info">
-            <div className="friend-avatar">
-              {selectedFriend.name.substring(0, 1).toUpperCase()}
-            </div>
-            <div className="friend-name-status">
-              <h3>{selectedFriend.name}</h3>
-              <span className="friend-email">{selectedFriend.email}</span>
-              <span className="status">Online</span>
-            </div>
-          </div>
-        ) : (
-          <div className="user-profile-info">
-            <div className="user-avatar" onClick={handleProfilePictureClick}>
-              {user.profilePicture ? (
-                <img src={user.profilePicture} alt="Profile" className="profile-picture" />
-              ) : (
-                user.name ? user.name.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : "U")
-              )}
-              <div className="avatar-overlay">
-                <i className="fa fa-camera"></i>
-              </div>
-            </div>
-            <div className="user-details">
-              <h3>{user.name || "User"}</h3>
-              <span className="user-email">{user.sub || user.email}</span>
-            </div>
-          </div>
-        )}
-        
-        <div className="header-right">
-          {showFriendList && (
-            <>
-              <div className="theme-selector">
-                <select 
-                  value={currentTheme} 
-                  onChange={(e) => setCurrentTheme(e.target.value)}
-                  className="theme-dropdown"
-                >
-                  {Object.entries(THEMES).map(([key, theme]) => (
-                    <option key={key} value={key}>{theme.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="theme-switch">
-                <input 
-                  type="checkbox" 
-                  id="darkmode-toggle" 
-                  checked={darkMode}
-                  onChange={() => setDarkMode(!darkMode)}
-                />
-                <label htmlFor="darkmode-toggle">
-                  <span className="sr-only">Toggle dark mode</span>
-                </label>
-              </div>
-              
-              <button className="logout-button" onClick={onLogout}>
-                <i className="fa fa-sign-out"></i>
-              </button>
-            </>
+        <div className="header-left">
+          {!showFriendList && (
+            <button className="back-button" onClick={() => setShowFriendList(true)}>
+              <i className="fa fa-arrow-left"></i>
+            </button>
           )}
-          
-          {!showFriendList && selectedFriend && (
-            <div className="chat-actions">
-              <button className="call-button" title="Voice Call">
-                <i className="fa fa-phone"></i>
-              </button>
-              <button className="video-call-button" title="Video Call">
-                <i className="fa fa-video"></i>
-              </button>
-              <div className="menu-dropdown">
-                <button className="menu-button" title="More Options">
-                  <i className="fa fa-ellipsis-v"></i>
-                </button>
-                <div className="dropdown-content">
-                  <button>Block Contact</button>
-                  <button>Clear Chat</button>
-                  <button>Search Messages</button>
-                  <button>View Profile</button>
+          {showFriendList ? (
+            <div className="user-profile-info">
+              <div className="user-avatar" onClick={handleProfilePictureClick}>
+                {user.profilePicture ? (
+                  <img src={user.profilePicture} alt={user.name || user.email} className="profile-picture" />
+                ) : (
+                  <div className="avatar-placeholder">
+                    {(user.name ? user.name.charAt(0) : user.email.charAt(0)).toUpperCase()}
+                  </div>
+                )}
+                <div className="avatar-overlay">
+                  <i className="fa fa-camera"></i>
                 </div>
               </div>
+              <div className="user-details">
+                <h3>{user.name || 'User'}</h3>
+                <span className="user-email">{user.email}</span>
+              </div>
             </div>
+          ) : (
+            selectedFriend && (
+              <div className="selected-friend-info">
+                <div className="friend-avatar">
+                  {selectedFriend.profilePicture ? (
+                    <img 
+                      src={selectedFriend.profilePicture} 
+                      alt={selectedFriend.name || selectedFriend.email || selectedFriend.username} 
+                      className="profile-picture"
+                    />
+                  ) : (
+                    <div className="avatar-placeholder">
+                      {(selectedFriend.name || selectedFriend.email || selectedFriend.username || 'F').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="friend-name-status">
+                  <h3>{selectedFriend.name || selectedFriend.email || selectedFriend.username || 'Unknown User'}</h3>
+                  {selectedFriend.email && <span className="friend-email">{selectedFriend.email}</span>}
+                  <span className="status">Online</span>
+                </div>
+              </div>
+            )
           )}
+        </div>
+        <div className="header-right">
+          <div className="theme-switch-wrapper">
+            <label className="theme-switch">
+              <input
+                type="checkbox"
+                id="darkmode-toggle"
+                checked={darkMode}
+                onChange={() => setDarkMode(!darkMode)}
+              />
+              <label htmlFor="darkmode-toggle"></label>
+            </label>
+          </div>
+          <button className="logout-button" onClick={onLogout}>
+            <i className="fa fa-sign-out"></i>
+          </button>
         </div>
       </div>
       
@@ -1059,19 +1099,22 @@ const ChatPage = ({ user, onLogout }) => {
           
           <div className="message-input-container">
             <div className="message-box">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="message-input" 
                 placeholder="Type a message..." 
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  handleTyping();
+                }}
                 onKeyDown={handleKeyPress}
-                disabled={!connected || isConnecting}
+                disabled={!connected || isConnecting || !selectedFriend}
               />
-  
-              <input 
-                type="file" 
-                accept="image/*" 
+              
+              <input
+                type="file"
+                accept="image/*"
                 style={{display: 'none'}} 
                 ref={fileInputRef}
                 onChange={handleImageUpload} 
@@ -1080,25 +1123,25 @@ const ChatPage = ({ user, onLogout }) => {
               <button 
                 className="image-upload-btn" 
                 onClick={() => fileInputRef.current.click()}
-                disabled={!connected || isConnecting}
+                disabled={!connected || isConnecting || !selectedFriend}
               >
                 <i className="fa fa-camera"></i>
               </button>
               
-              <button 
+              <button
                 className={`voice-record-btn ${isRecording ? 'recording' : ''}`}
                 onMouseDown={startRecording}
                 onMouseUp={stopRecording}
                 onMouseLeave={isRecording ? stopRecording : undefined}
-                disabled={!connected || isConnecting}
+                disabled={!connected || isConnecting || !selectedFriend}
               >
                 <i className="fa fa-microphone"></i>
               </button>
-  
+              
               <button 
                 className="send-button" 
                 onClick={sendMessage}
-                disabled={!message.trim() || !connected || isConnecting}
+                disabled={!message.trim() || !connected || isConnecting || !selectedFriend}
               >
                 <i className="fa fa-paper-plane"></i>
               </button>

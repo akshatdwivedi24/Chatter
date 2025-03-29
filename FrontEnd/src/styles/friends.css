@@ -75,15 +75,19 @@
 
 .add-friend-form input {
   flex: 0.7;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border: 1px solid var(--border-color, #ddd);
-  border-radius: 20px;
-  font-size: 15px;
-  background-color: var(--input-bg, #f0f2f5);
-  color: var(--text-color, #333);
-  width: 70%;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: var(--input-bg, #fff);
+  color: var(--input-text-color, #333);
+  width: 100%;
   min-width: 0;
   height: 42px;
+}
+
+.add-friend-form input::placeholder {
+  color: #999;
 }
 
 .add-friend-form button {
@@ -658,8 +662,12 @@
   border: 1px solid var(--border-color, #ddd);
   border-radius: 8px;
   font-size: 14px;
-  background-color: var(--input-bg, #f0f2f5);
-  color: var(--text-color, #333);
+  background-color: var(--input-bg, #fff);
+  color: var(--input-text-color, #333);
+}
+
+.form-group input::placeholder {
+  color: #999;
 }
 
 .friend-selection-list {

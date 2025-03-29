@@ -14,6 +14,21 @@ public class ChatController {
     @SendTo("/topic/messages")
     public Message sendMessage(Message message) {
         message.setTimestamp(LocalDateTime.now());
+        // Broadcast the message to all subscribers
+        return message;
+    }
+
+    @MessageMapping("/typing")
+    @SendTo("/topic/typing")
+    public Message handleTyping(Message message) {
+        message.setTimestamp(LocalDateTime.now());
+        return message;
+    }
+
+    @MessageMapping("/message-status")
+    @SendTo("/topic/message-status")
+    public Message updateMessageStatus(Message message) {
+        message.setTimestamp(LocalDateTime.now());
         return message;
     }
 } 

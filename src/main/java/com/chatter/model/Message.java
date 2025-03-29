@@ -16,6 +16,9 @@ public class Message {
     private Long id;
     private String sender;
     private String content;
+    private String recipient;
+    private String messageStatus; // SENT, DELIVERED, SEEN
+    private boolean isTyping;
     
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     private LocalDateTime timestamp;
@@ -27,6 +30,7 @@ public class Message {
         this.sender = sender;
         this.content = content;
         this.timestamp = LocalDateTime.parse(timestamp);
+        this.messageStatus = "SENT";
     }
 
     public String getSender() {

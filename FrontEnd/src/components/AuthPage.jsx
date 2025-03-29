@@ -3,15 +3,9 @@ import '../styles/auth.css';
 
 const AuthPage = ({ onAuthSuccess }) => {
   const [error, setError] = useState(null);
-  const [showAboutAuthor, setShowAboutAuthor] = useState(false);
+  const [showAuthorModal, setShowAuthorModal] = useState(false);
 
   useEffect(() => {
-    // Add Font Awesome
-    const fontAwesomeScript = document.createElement('link');
-    fontAwesomeScript.rel = 'stylesheet';
-    fontAwesomeScript.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
-    document.head.appendChild(fontAwesomeScript);
-
     const loadGoogleScript = () => {
       // Remove any existing Google Sign-In scripts
       const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
@@ -76,11 +70,21 @@ const AuthPage = ({ onAuthSuccess }) => {
       if (scriptElement) {
         document.head.removeChild(scriptElement);
       }
-      
-      const fontAwesomeLink = document.querySelector('link[href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"]');
-      if (fontAwesomeLink) {
-        document.head.removeChild(fontAwesomeLink);
-      }
+    };
+  }, []);
+
+  // Add Font Awesome script for icons
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+    link.integrity = 'sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==';
+    link.crossOrigin = 'anonymous';
+    link.referrerPolicy = 'no-referrer';
+    document.head.appendChild(link);
+    
+    return () => {
+      document.head.removeChild(link);
     };
   }, []);
 
@@ -124,8 +128,9 @@ const AuthPage = ({ onAuthSuccess }) => {
     }
   };
 
-  const toggleAboutAuthor = () => {
-    setShowAboutAuthor(!showAboutAuthor);
+  // Toggle author modal
+  const toggleAuthorModal = () => {
+    setShowAuthorModal(!showAuthorModal);
   };
 
   return (
@@ -134,82 +139,81 @@ const AuthPage = ({ onAuthSuccess }) => {
       <div className="shape shape-1"></div>
       <div className="shape shape-2"></div>
       <div className="shape shape-3"></div>
-
-      {/* About the author section */}
-      <div className="about-author-section">
-        <button className="about-button" onClick={toggleAboutAuthor}>
-          About the author
-        </button>
-        
-        {showAboutAuthor && (
-          <div className="about-author-modal">
-            <div className="about-author-content">
-              <button className="close-button" onClick={toggleAboutAuthor}>×</button>
+      
+      {/* About the Author button */}
+      <button className="author-button" onClick={toggleAuthorModal}>
+        <i className="fas fa-user-circle"></i> About the Author
+      </button>
+      
+      {/* Author Modal */}
+      {showAuthorModal && (
+        <div className="author-modal-overlay" onClick={toggleAuthorModal}>
+          <div className="author-modal" onClick={e => e.stopPropagation()}>
+            <div className="author-modal-header">
               <h2>About the Author</h2>
+              <button className="close-button" onClick={toggleAuthorModal}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="author-modal-content">
               <p>
-                Akshat Dwivedi is a passionate software developer with expertise in Spring Boot, React, and distributed systems. 
-                With a strong foundation in backend development, real-time data processing, and system architecture, 
-                Akshat enjoys building scalable and efficient applications.
+                Akshat Dwivedi is a passionate software developer with expertise in Spring Boot, Java, Docker, and Software Testing. 
+                He enjoys building robust and scalable applications while continuously exploring new technologies to enhance his skills.
               </p>
               <p>
-                He has worked on multiple projects, including real-time chat applications, distributed file systems, 
-                and data ingestion pipelines using Kafka. His focus is on designing robust, high-performance systems 
-                while ensuring security and seamless user experience.
+                Beyond the world of coding, Akshat is a Cricket Enthusiast, Music Aficionado, Movie Buff, and outdoor explorer. 
+                He enjoys long walks, finding inspiration in the rhythm of the world around him. With a blend of technical expertise 
+                and creativity, he is always eager to innovate and bring ideas to life. ❤️
               </p>
-              <p>
-                Beyond coding, Akshat enjoys sports, watching movies, walking, and listening to music. 
-                He believes in continuous learning and staying updated with the latest technological trends.
-              </p>
+              
               <div className="author-social-links">
-                <a href="https://www.instagram.com/aksh.at_24?utm_source=qr&igsh=ZmZzajVlYndkbnkz" target="_blank" rel="noopener noreferrer">Instagram</a>
-                <a href="https://github.com/akshatdwivedi24" target="_blank" rel="noopener noreferrer">GitHub</a>
-                <a href="https://www.linkedin.com/in/akshat-dwivedi1/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                <a href="https://www.instagram.com/aksh.at_24?utm_source=qr&igsh=ZmZzajVlYndkbnkz" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-instagram"></i>
+                </a>
+                <a href="https://www.linkedin.com/in/akshat-dwivedi1/" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-linkedin-in"></i>
+                </a>
+                <a href="https://github.com/akshatdwivedi24" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-github"></i>
+                </a>
               </div>
             </div>
           </div>
-        )}
-      </div>
-
-      <div className="auth-split-container">
-        {/* Left side - Welcome and slogan */}
-        <div className="auth-welcome-side">
-          <div className="welcome-content">
-            <h1>Welcome to Chatter</h1>
-            <div className="slogan">
-              <p>"Unfiltered Vibes, Untamed Chats – This is Chatter!" 💬⚡🎭</p>
-            </div>
-            <div className="welcome-design">
-              <div className="chat-bubble bubble-1">Hey there!</div>
-              <div className="chat-bubble bubble-2">Welcome to Chatter!</div>
-              <div className="chat-bubble bubble-3">Join the conversation...</div>
-            </div>
+        </div>
+      )}
+      
+      <div className="auth-content">
+        {/* Left column with slogan */}
+        <div className="slogan-container">
+          <div className="slogan">
+            <h1>WELCOME TO CHATTER!!!!</h1>
+            <p>Unfiltered Vibes, Untamed Chats – This is Chatter!</p>
           </div>
         </div>
-
-        {/* Right side - Login form */}
-        <div className="auth-login-side">
+        
+        {/* Right column with login */}
+        <div className="login-column">
           <div className="auth-card">
-            <div className="login-text">
-              <h2>Sign in</h2>
-              <p>Continue with Google to start chatting</p>
+            <div className="welcome-text">
+              <h2>Continue with Google</h2>
               {error && <div className="error-message">{error}</div>}
             </div>
-
+            
             {/* Google Sign-In button container */}
             <div id="googleButton" className="google-button-container"></div>
             
-            {/* Social links */}
-            <div className="auth-social-links">
-              <p>Connect with the developer:</p>
-              <div className="social-icons">
-                <a href="https://www.instagram.com/aksh.at_24?utm_source=qr&igsh=ZmZzajVlYndkbnkz" target="_blank" rel="noopener noreferrer" className="social-icon instagram">
-                  <i className="fab fa-instagram"></i>
+            {/* Connect with the developer section */}
+            <div className="connect-developer">
+              <h3>Connect With The Developer</h3>
+              <div className="social-links">
+                <a href="https://www.instagram.com/aksh.at_24?utm_source=qr&igsh=ZmZzajVlYndkbnkz" target="_blank" rel="noopener noreferrer" title="Instagram">
+                  <i className="fab fa-instagram"></i> Instagram
                 </a>
-                <a href="https://github.com/akshatdwivedi24" target="_blank" rel="noopener noreferrer" className="social-icon github">
-                  <i className="fab fa-github"></i>
+                <a href="https://www.linkedin.com/in/akshat-dwivedi1/" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                  <i className="fab fa-linkedin-in"></i> LinkedIn
                 </a>
-                <a href="https://www.linkedin.com/in/akshat-dwivedi1/" target="_blank" rel="noopener noreferrer" className="social-icon linkedin">
-                  <i className="fab fa-linkedin"></i>
+                <a href="https://github.com/akshatdwivedi24" target="_blank" rel="noopener noreferrer" title="GitHub">
+                  <i className="fab fa-github"></i> GitHub
                 </a>
               </div>
             </div>
