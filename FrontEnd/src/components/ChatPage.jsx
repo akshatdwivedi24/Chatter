@@ -1000,6 +1000,21 @@ const ChatPage = ({ user, onLogout }) => {
     });
   };
 
+  const handleVideoCall = () => {
+    // Implementation for handling video call
+    console.log('Video call');
+  };
+
+  const handleVoiceCall = () => {
+    // Implementation for handling voice call
+    console.log('Voice call');
+  };
+
+  const handleMenuClick = () => {
+    // Implementation for handling menu click
+    console.log('Menu click');
+  };
+
   return (
     <div className={`chat-container ${darkMode ? 'dark-mode' : ''} ${currentTheme}-theme`}>
       <ProfilePictureModal />
@@ -1049,27 +1064,55 @@ const ChatPage = ({ user, onLogout }) => {
                 <div className="friend-name-status">
                   <h3>{selectedFriend.name || selectedFriend.email || selectedFriend.username || 'Unknown User'}</h3>
                   {selectedFriend.email && <span className="friend-email">{selectedFriend.email}</span>}
-                  <span className="status">Online</span>
                 </div>
               </div>
             )
           )}
         </div>
         <div className="header-right">
-          <div className="theme-switch-wrapper">
-            <label className="theme-switch">
-              <input
-                type="checkbox"
-                id="darkmode-toggle"
-                checked={darkMode}
-                onChange={() => setDarkMode(!darkMode)}
-              />
-              <label htmlFor="darkmode-toggle"></label>
-            </label>
-          </div>
-          <button className="logout-button" onClick={onLogout}>
-            <i className="fa fa-sign-out"></i>
-          </button>
+          {showFriendList ? (
+            <>
+              <div className="theme-switch-wrapper">
+                <label className="theme-switch">
+                  <input
+                    type="checkbox"
+                    id="darkmode-toggle"
+                    checked={darkMode}
+                    onChange={() => setDarkMode(!darkMode)}
+                  />
+                  <label htmlFor="darkmode-toggle"></label>
+                </label>
+              </div>
+              <button className="logout-button" onClick={onLogout}>
+                <i className="fa fa-sign-out"></i>
+              </button>
+            </>
+          ) : (
+            <div className="chat-actions">
+              <button className="video-call-button" onClick={handleVideoCall}>
+                <i className="fas fa-video"></i>
+              </button>
+              <button className="call-button" onClick={handleVoiceCall}>
+                <i className="fas fa-phone"></i>
+              </button>
+              <div className="menu-dropdown">
+                <button className="menu-button" onClick={handleMenuClick}>
+                  <i className="fas fa-ellipsis-v"></i>
+                </button>
+                <div className="dropdown-content">
+                  <button onClick={() => console.log('Clear chat')}>
+                    <i className="fas fa-trash-alt"></i> Clear Chat
+                  </button>
+                  <button onClick={() => console.log('Block user')}>
+                    <i className="fas fa-ban"></i> Block User
+                  </button>
+                  <button onClick={() => console.log('Report user')}>
+                    <i className="fas fa-flag"></i> Report User
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
